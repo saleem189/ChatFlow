@@ -1,0 +1,148 @@
+// ================================
+// Messages API Routes
+// ================================
+// GET /api/messages?roomId=xxx - Get messages for a room
+// POST /api/messages - Save a new message
+
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { handleError, UnauthorizedError, ValidationError } from "@/lib/errors";
+import { getService } from "@/lib/di";
+import { MessageService } from "@/lib/services/message.service";
+import { broadcastMessage } from "@/lib/socket-server-client";
+import { logApiReceive, logApiBroadcast, logError } from "@/lib/message-flow-logger";
+
+// Get services from DI container
+const messageService = getService<MessageService>('messageService');
+
+/**
+ * GET /api/messages
+ * Get messages for a specific chat room
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // 1. Authentication
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return handleError(new UnauthorizedError('You must be logged in'));
+    }
+
+    // 2. Parse query parameters
+    const { searchParams } = new URL(request.url);
+    const roomId = searchParams.get("roomId");
+    const cursor = searchParams.get("cursor");
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+
+    if (!roomId) {
+      return handleError(new ValidationError('Room ID is required'));
+    }
+
+    // 3. Delegate to service
+    const result = await messageService.getMessages(session.user.id, roomId, {
+      limit,
+      cursor: cursor || undefined,
+    });
+
+    // 4. Return response
+    return NextResponse.json(result);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+/**
+ * POST /api/messages
+ * Save a new message to the database
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Authentication
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return handleError(new UnauthorizedError('You must be logged in'));
+    }
+
+    // 2. Parse request body
+    const body = await request.json();
+    const { content, roomId, fileUrl, fileName, fileSize, fileType, type, replyToId } = body;
+
+    // 3. Log API receive
+    const tempMessageId = `temp_${Date.now()}`;
+    logApiReceive(tempMessageId, roomId, session.user.id, content || '');
+
+    // 4. Delegate to service
+    const message = await messageService.sendMessage(
+      session.user.id,
+      roomId,
+      content || '',
+      {
+        replyToId,
+        fileUrl,
+        fileName,
+        fileSize,
+        fileType,
+        type,
+      }
+    );
+
+    // 5. Transform message to match expected format
+    const transformedMessage = {
+      id: message.id,
+      content: message.content,
+      type: message.type,
+      fileUrl: message.fileUrl,
+      fileName: message.fileName,
+      fileSize: message.fileSize,
+      fileType: message.fileType,
+      isEdited: message.isEdited,
+      isDeleted: message.isDeleted,
+      replyToId: message.replyToId,
+      replyTo: message.replyTo ? {
+        id: message.replyTo.id,
+        content: message.replyTo.content,
+        senderName: message.replyTo.sender.name,
+        senderAvatar: message.replyTo.sender.avatar,
+      } : null,
+      reactions: {},
+      isRead: false,
+      createdAt: message.createdAt.toISOString(),
+      senderId: message.senderId,
+      senderName: message.sender.name,
+      senderAvatar: message.sender.avatar,
+      roomId: message.roomId,
+    };
+
+    // 6. Broadcast message via socket to other users (after saving to DB)
+    // This ensures all users receive the message with the real database ID
+    broadcastMessage(roomId, {
+      id: transformedMessage.id,
+      content: transformedMessage.content,
+      senderId: transformedMessage.senderId,
+      senderName: transformedMessage.senderName,
+      type: transformedMessage.type,
+      fileUrl: transformedMessage.fileUrl,
+      fileName: transformedMessage.fileName,
+      fileSize: transformedMessage.fileSize,
+      fileType: transformedMessage.fileType,
+      replyToId: transformedMessage.replyToId || undefined,
+      replyTo: transformedMessage.replyTo,
+      createdAt: transformedMessage.createdAt,
+    })
+      .then(() => {
+      // Log successful broadcast (will be logged in broadcastMessage function)
+    })
+      .catch((error) => {
+        logError('API_BROADCAST', transformedMessage.id, roomId, error, {
+          senderId: transformedMessage.senderId,
+        });
+        console.error("Failed to broadcast message:", error);
+      });
+
+    // 7. Return response
+    return NextResponse.json({ message: transformedMessage }, { status: 201 });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+

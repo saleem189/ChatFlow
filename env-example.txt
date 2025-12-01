@@ -1,0 +1,46 @@
+# ================================
+# Database Configuration (PostgreSQL)
+# ================================
+DATABASE_URL="postgresql://admin:password123@localhost:5432/chatapp?schema=public"
+
+# Alternative: Using the dedicated app user (after init script runs)
+# DATABASE_URL="mongodb://chatapp_user:chatapp_password@localhost:27017/chatapp?authSource=chatapp"
+
+# ================================
+# NextAuth.js Configuration
+# ================================
+# Generate a secure secret: openssl rand -base64 32
+# On Windows PowerShell: [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
+NEXTAUTH_SECRET="oWEK+b09bpJIB5qzrxWgbe3T551jASW0Ube0WzKrBaU="
+
+# The URL where your app is running
+NEXTAUTH_URL="http://localhost:3000"
+
+# ================================
+# Socket.io Server Configuration
+# ================================
+# The URL where your Socket.io server is running
+NEXT_PUBLIC_SOCKET_URL="http://localhost:3001"
+
+# Port for the Socket.io server
+SOCKET_PORT=3001
+
+# ================================
+# SETUP INSTRUCTIONS
+# ================================
+# 1. Copy this file to .env.local:
+#    cp env-example.txt .env.local  (Linux/Mac)
+#    copy env-example.txt .env.local  (Windows)
+#
+# 2. Start MongoDB container:
+#    docker-compose up -d
+#
+# 3. Generate Prisma client:
+#    npx prisma generate
+#
+# 4. Push schema to database:
+#    npx prisma db push
+#
+# 5. Start the app:
+#    npm run dev:all
+# ================================

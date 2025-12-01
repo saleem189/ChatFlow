@@ -1,0 +1,33 @@
+# ================================
+# Docker Compose for Chat Application
+# ================================
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: chatapp-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: chatapp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # pgAdmin - Web-based admin interface (optional)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: chatapp-pgadmin
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

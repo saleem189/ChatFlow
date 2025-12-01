@@ -1,0 +1,144 @@
+// ================================
+// Admin Service
+// ================================
+// Business logic for admin operations
+
+import { UserRepository } from '../repositories/user.repository';
+import { RoomRepository } from '../repositories/room.repository';
+import { MessageRepository } from '../repositories/message.repository';
+import { ForbiddenError, NotFoundError, ValidationError } from '../errors';
+import { Prisma } from '@prisma/client';
+
+export class AdminService {
+  private userRepository: UserRepository;
+  private roomRepository: RoomRepository;
+  private messageRepository: MessageRepository;
+
+  constructor(
+    userRepository: UserRepository,
+    roomRepository: RoomRepository,
+    messageRepository: MessageRepository
+  ) {
+    this.userRepository = userRepository;
+    this.roomRepository = roomRepository;
+    this.messageRepository = messageRepository;
+  }
+
+  /**
+   * Get all users with statistics
+   */
+  async getAllUsers() {
+    const prisma = this.userRepository.getPrismaClient();
+    
+    return prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        status: true,
+        lastSeen: true,
+        createdAt: true,
+        _count: {
+          select: {
+            messages: true,
+            rooms: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Update user (admin only)
+   */
+  async updateUser(userId: string, data: { name?: string; email?: string; role?: string; status?: string }) {
+    if (!userId) {
+      throw new ValidationError('User ID is required');
+    }
+
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    const updateData: Prisma.UserUpdateInput = {};
+    if (data.name) updateData.name = data.name;
+    if (data.email) updateData.email = data.email;
+    if (data.role) updateData.role = data.role;
+    if (data.status) updateData.status = data.status;
+
+    const updatedUser = await this.userRepository.update(userId, updateData);
+    
+    // Return only the fields we want to expose
+    return {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      status: updatedUser.status,
+    };
+  }
+
+  /**
+   * Delete user (admin only)
+   */
+  async deleteUser(userId: string) {
+    if (!userId) {
+      throw new ValidationError('User ID is required');
+    }
+
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    await this.userRepository.delete(userId);
+    return { message: 'User deleted successfully' };
+  }
+
+  /**
+   * Get application statistics
+   */
+  async getStats() {
+    const prisma = this.userRepository.getPrismaClient();
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    const [totalUsers, totalMessages, totalRooms, messagesThisHour] = await Promise.all([
+      prisma.user.count(),
+      prisma.message.count(),
+      prisma.chatRoom.count(),
+      prisma.message.count({
+        where: {
+          createdAt: { gte: oneHourAgo },
+        },
+      }),
+    ]);
+
+    return {
+      totalUsers,
+      totalMessages,
+      totalRooms,
+      messagesThisHour,
+    };
+  }
+
+  /**
+   * Delete room (admin only)
+   */
+  async deleteRoom(roomId: string) {
+    if (!roomId) {
+      throw new ValidationError('Room ID is required');
+    }
+
+    const room = await this.roomRepository.findById(roomId);
+    if (!room) {
+      throw new NotFoundError('Room not found');
+    }
+
+    await this.roomRepository.delete(roomId);
+    return { message: 'Room deleted successfully' };
+  }
+}
+

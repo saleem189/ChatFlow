@@ -1,0 +1,419 @@
+// ================================
+// Message Input Component
+// ================================
+// Input field for sending messages with typing indicator support
+
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { Send, Paperclip, X, File as FileIcon, Image, Video, FileText, Reply } from "lucide-react";
+import { toast } from "sonner";
+import { cn, debounce } from "@/lib/utils";
+import { EmojiPicker } from "./emoji-picker";
+import { VoiceRecorder } from "./voice-recorder";
+import { useFileUpload } from "@/hooks";
+
+interface MessageInputProps {
+  onSendMessage: (content: string, fileData?: {
+    url: string;
+    fileName: string;
+    fileSize: number;
+    fileType: string;
+  }) => void;
+  onTyping: (isTyping: boolean) => void;
+  disabled?: boolean;
+  replyTo?: {
+    id: string;
+    content: string;
+    senderName: string;
+  } | null;
+  onCancelReply?: () => void;
+}
+
+export function MessageInput({
+  onSendMessage,
+  onTyping,
+  disabled = false,
+  replyTo,
+  onCancelReply,
+}: MessageInputProps) {
+  const [message, setMessage] = useState("");
+  const [selectedFile, setSelectedFile] = useState<{
+    url: string;
+    fileName: string;
+    fileSize: number;
+    fileType: string;
+  } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isTypingRef = useRef(false);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  // Use file upload hook
+  const { upload, uploading: uploadingFile } = useFileUpload();
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
+    }
+  }, [message]);
+
+  // Debounced stop typing
+  const debouncedStopTyping = useRef(
+    debounce(() => {
+      if (isTypingRef.current) {
+        isTypingRef.current = false;
+        onTyping(false);
+      }
+    }, 2000)
+  ).current;
+
+  // Handle input change
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+
+    // Emit typing event
+    if (e.target.value.trim() && !isTypingRef.current) {
+      isTypingRef.current = true;
+      onTyping(true);
+    }
+
+    // Reset typing timeout
+    debouncedStopTyping();
+  };
+
+  // Handle send message
+  const handleSend = () => {
+    const trimmedMessage = message.trim();
+
+    // Allow sending if there's a message OR a file
+    if ((!trimmedMessage && !selectedFile) || disabled) return;
+
+    // Stop typing indicator
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      onTyping(false);
+    }
+
+    // Send message with file data if available
+    onSendMessage(trimmedMessage || selectedFile?.fileName || "", selectedFile || undefined);
+
+    // Clear input and file
+    setMessage("");
+    setSelectedFile(null);
+
+    // Focus textarea
+    textareaRef.current?.focus();
+  };
+
+  // Handle key press
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Send on Enter (without Shift)
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  // Handle emoji selection
+  const handleEmojiSelect = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const newMessage = message.substring(0, start) + emoji + message.substring(end);
+      setMessage(newMessage);
+      
+      // Set cursor position after emoji
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+      }, 0);
+    }
+  };
+
+  // Handle file upload (using hook)
+  const uploadFile = async (file: File) => {
+    const result = await upload(file);
+    if (result) {
+      setSelectedFile({
+        url: result.url,
+        fileName: result.fileName,
+        fileSize: result.fileSize,
+        fileType: result.fileType,
+      });
+    }
+  };
+
+  // Handle file input
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+    e.target.value = "";
+  };
+
+  // Drag and drop handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      // Only handle the first file
+      await uploadFile(files[0]);
+    }
+  };
+
+  // Get file icon based on type
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith("image/")) return Image;
+    if (fileType.startsWith("video/")) return Video;
+    if (fileType === "application/pdf" || fileType.startsWith("text/")) return FileText;
+    return FileIcon;
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const isImage = selectedFile?.fileType.startsWith("image/");
+  const isVideo = selectedFile?.fileType.startsWith("video/");
+
+  return (
+    <div
+      ref={dropZoneRef}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      className={cn(
+        "relative px-4 py-3 bg-white dark:bg-surface-900 border-t border-surface-200 dark:border-surface-800",
+        isDragging && "bg-primary-50 dark:bg-primary-900/20 border-primary-300 dark:border-primary-700"
+      )}
+    >
+      {/* Reply Preview */}
+      {replyTo && (
+        <div className="mb-2 px-3 py-2 rounded-lg bg-primary-50 dark:bg-primary-900/20 border-l-3 border-primary-500 flex items-start gap-2">
+          <Reply className="w-4 h-4 text-primary-600 dark:text-primary-400 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-primary-700 dark:text-primary-300 mb-0.5">
+              {replyTo.senderName}
+            </p>
+            <p className="text-xs text-surface-600 dark:text-surface-400 truncate">
+              {replyTo.content}
+            </p>
+          </div>
+          {onCancelReply && (
+            <button
+              onClick={onCancelReply}
+              className="w-6 h-6 rounded-full hover:bg-primary-100 dark:hover:bg-primary-900/40 flex items-center justify-center text-primary-600 dark:text-primary-400 transition-colors flex-shrink-0"
+              title="Cancel reply"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 bg-primary-500/10 dark:bg-primary-500/20 border-2 border-dashed border-primary-500 rounded-lg flex items-center justify-center z-50 pointer-events-none">
+          <div className="text-center">
+            <Paperclip className="w-12 h-12 text-primary-600 dark:text-primary-400 mx-auto mb-2" />
+            <p className="text-sm font-medium text-primary-600 dark:text-primary-400">Drop file to upload</p>
+          </div>
+        </div>
+      )}
+
+      {/* File Preview - WhatsApp-style */}
+      {selectedFile && (
+        <div className="mb-2 relative">
+          {isImage ? (
+            <div className="relative inline-block rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700 max-w-xs shadow-sm">
+              <img
+                src={selectedFile.url}
+                alt={selectedFile.fileName}
+                className="max-h-64 w-auto object-cover rounded-lg"
+              />
+              <button
+                onClick={() => setSelectedFile(null)}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 flex items-center justify-center text-white transition-colors shadow-lg"
+                title="Remove file"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : isVideo ? (
+            <div className="relative inline-block rounded-lg overflow-hidden border border-surface-200 dark:border-surface-700 max-w-xs shadow-sm">
+              <video
+                src={selectedFile.url}
+                controls
+                className="max-h-64 w-auto rounded-lg"
+              />
+              <button
+                onClick={() => setSelectedFile(null)}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/70 hover:bg-black/90 flex items-center justify-center text-white transition-colors z-10 shadow-lg"
+                title="Remove file"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="relative inline-flex items-center gap-3 p-3 rounded-lg bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700">
+              <div className="w-10 h-10 rounded-lg bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center flex-shrink-0">
+                {(() => {
+                  const Icon = getFileIcon(selectedFile.fileType);
+                  return <Icon className="w-5 h-5 text-primary-600 dark:text-primary-400" />;
+                })()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-surface-900 dark:text-white truncate">
+                  {selectedFile.fileName}
+                </p>
+                <p className="text-xs text-surface-500">
+                  {formatFileSize(selectedFile.fileSize)}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedFile(null)}
+                className="w-6 h-6 rounded-full hover:bg-surface-200 dark:hover:bg-surface-700 flex items-center justify-center text-surface-500 flex-shrink-0"
+                title="Remove file"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Uploading indicator */}
+      {uploadingFile && (
+        <div className="mb-2 p-3 rounded-lg bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800 flex items-center gap-3">
+          <div className="w-4 h-4 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-primary-600 dark:text-primary-400">Uploading file...</p>
+        </div>
+      )}
+
+      <div className="flex items-end gap-2">
+        {/* Voice Recorder */}
+        <VoiceRecorder
+          onRecordingComplete={async (audioBlob, duration) => {
+            try {
+              // Create file from blob
+              const fileName = `voice_${Date.now()}.${audioBlob.type.includes('webm') ? 'webm' : 'mp4'}`;
+              const file = new File([audioBlob], fileName, { type: audioBlob.type });
+
+              // Upload audio file using the hook (it handles uploading state automatically)
+              const result = await upload(file);
+              
+              if (result) {
+                // Send voice message
+                onSendMessage("", {
+                  url: result.url,
+                  fileName: `Voice message (${Math.floor(duration)}s)`,
+                  fileSize: result.fileSize,
+                  fileType: "audio/webm",
+                });
+              } else {
+                // Error is already handled by the upload function
+                toast.error("Failed to upload voice message");
+              }
+            } catch (error) {
+              console.error("Error uploading voice message:", error);
+              toast.error("An error occurred while uploading the voice message");
+            }
+            // Note: No need to manually set uploading state - upload() handles it
+          }}
+          onCancel={() => {
+            // Cancel recording
+          }}
+        />
+
+        {/* Attachment Button */}
+        <label className="w-10 h-10 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 flex items-center justify-center text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 transition-colors flex-shrink-0 cursor-pointer" title="Attach file">
+          <input
+            type="file"
+            onChange={handleFileSelect}
+            className="hidden"
+            accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
+          />
+          <Paperclip className="w-5 h-5" />
+        </label>
+
+        {/* Input Container */}
+        <div className="flex-1 relative">
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message..."
+            disabled={disabled}
+            rows={1}
+            className={cn(
+              "w-full px-4 py-3 pr-12 rounded-2xl resize-none",
+              "bg-surface-100 dark:bg-surface-800",
+              "text-surface-900 dark:text-surface-100",
+              "placeholder:text-surface-400 dark:placeholder:text-surface-500",
+              "focus:outline-none focus:ring-2 focus:ring-primary-500/20",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "transition-all duration-200",
+              "max-h-[150px] scrollbar-hide"
+            )}
+          />
+
+          {/* Emoji Picker */}
+          <div className="absolute right-3 bottom-2.5">
+            <EmojiPicker onEmojiSelect={handleEmojiSelect} />
+          </div>
+        </div>
+
+        {/* Send Button */}
+        <button
+          onClick={handleSend}
+          disabled={(!message.trim() && !selectedFile) || disabled || uploadingFile}
+          className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 flex-shrink-0",
+            (message.trim() || selectedFile) && !uploadingFile
+              ? "bg-primary-600 text-white hover:bg-primary-700 shadow-lg shadow-primary-500/25"
+              : "bg-surface-100 dark:bg-surface-800 text-surface-400 cursor-not-allowed"
+          )}
+          title="Send message"
+        >
+          <Send className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Helper text */}
+      <p className="text-xs text-surface-400 dark:text-surface-500 mt-2 text-center">
+        Press Enter to send, Shift + Enter for new line
+      </p>
+    </div>
+  );
+}
+

@@ -1,0 +1,166 @@
+// ================================
+// Prisma Schema for Chat Application (PostgreSQL)
+// ================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ================================
+// User Model
+// ================================
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  avatar    String?
+  role      String   @default("user") // user, admin
+  status    String   @default("offline")
+  lastSeen  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages   Message[]
+  rooms      RoomParticipant[]
+  ownedRooms ChatRoom[]        @relation("RoomOwner")
+  reactions  MessageReaction[]
+  readMessages MessageRead[]
+  pushSubscriptions PushSubscription[]
+
+  @@map("users")
+}
+
+// ================================
+// ChatRoom Model
+// ================================
+model ChatRoom {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isGroup     Boolean  @default(false)
+  avatar      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ownerId String
+  owner   User   @relation("RoomOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  messages     Message[]
+  participants RoomParticipant[]
+
+  @@map("chat_rooms")
+}
+
+// ================================
+// RoomParticipant Model
+// ================================
+model RoomParticipant {
+  id       String   @id @default(cuid())
+  joinedAt DateTime @default(now())
+  role     String   @default("member")
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  roomId String
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roomId])
+  @@map("room_participants")
+}
+
+// ================================
+// Message Model
+// ================================
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  type      String   @default("text") // text, image, video, file, audio
+  fileUrl   String?  // URL or path to uploaded file
+  fileName  String?  // Original file name
+  fileSize  Int?     // File size in bytes
+  fileType  String?  // MIME type (e.g., "image/png", "application/pdf")
+
+  senderId  String
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  roomId    String
+  room      ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  isEdited  Boolean  @default(false)
+  isDeleted Boolean  @default(false)
+
+  replyToId String?  // ID of message being replied to
+  replyTo   Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReplies")
+
+  reactions MessageReaction[]
+  readReceipts MessageRead[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId, createdAt])
+  @@index([senderId])
+  @@index([replyToId])
+  @@map("messages")
+}
+
+// ================================
+// Message Reaction Model
+// ================================
+model MessageReaction {
+  id        String   @id @default(cuid())
+  emoji     String   // Emoji character (👍, ❤️, 😂, etc.)
+  createdAt DateTime @default(now())
+
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@map("message_reactions")
+}
+
+// ================================
+// Message Read Receipt Model
+// ================================
+model MessageRead {
+  id        String   @id @default(cuid())
+  readAt    DateTime @default(now())
+
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+  @@map("message_reads")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
