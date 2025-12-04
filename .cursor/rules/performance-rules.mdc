@@ -1,0 +1,33 @@
+---
+description: Performance standards and optimization rules.
+globs: *.tsx, *.ts
+alwaysApply: false
+---
+
+# Performance Rules
+
+This file defines the performance standards and optimization rules for the ChatFlow project.
+
+## Simplicity
+
+- **No Over-engineering:** Avoid complex solutions when simple ones suffice. Do not add features or abstractions "just in case".
+
+## Rendering Optimization
+
+- **Memoization:** Use `React.memo`, `useMemo`, and `useCallback` appropriately to prevent unnecessary re-renders, especially in lists and complex components.
+- **Virtualization:** Use `@tanstack/react-virtual` for long lists (e.g., chat messages, user lists).
+
+## Code Splitting
+
+- **Lazy Loading:** Use `next/dynamic` for heavy components that are not immediately visible (e.g., modals, below-the-fold content).
+- **Route Splitting:** Next.js handles this automatically, but ensure page components are not importing unnecessary heavy libraries.
+
+## Asset Optimization
+
+- **Images:** Use `next/image` for all images to ensure proper optimization and sizing.
+- **Fonts:** Use `next/font` to optimize font loading.
+
+## Monitoring
+
+- **Sentry:** Ensure Sentry is initialized and capturing performance metrics.
+- **Vitals:** Monitor Core Web Vitals (LCP, FID, CLS) and address regressions.

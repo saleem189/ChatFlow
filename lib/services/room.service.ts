@@ -68,7 +68,7 @@ export class RoomService {
         id: p.user.id,
         name: p.user.name,
         avatar: p.user.avatar,
-        status: p.user.status || 'offline',
+        status: p.user.status || 'OFFLINE',
       })),
     }));
   }
@@ -427,6 +427,194 @@ export class RoomService {
     }
 
     return room;
+  }
+
+  /**
+   * Get room with messages for initial page load
+   * Includes participants, owner, and last 100 messages with relations
+   */
+  async getRoomWithMessages(
+    roomId: string,
+    userId: string,
+    messageLimit: number = 100
+  ): Promise<RoomWithRelations & {
+    messages: Array<{
+      id: string;
+      content: string;
+      type: string;
+      fileUrl: string | null;
+      fileName: string | null;
+      fileSize: number | null;
+      fileType: string | null;
+      isEdited: boolean;
+      isDeleted: boolean;
+      replyToId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+      senderId: string;
+      roomId: string;
+      sender: {
+        id: string;
+        name: string;
+        avatar: string | null;
+      };
+      reactions: Array<{
+        emoji: string;
+        user: {
+          id: string;
+          name: string;
+          avatar: string | null;
+        };
+      }>;
+      readReceipts: Array<{
+        id: string;
+        userId: string;
+        readAt: Date;
+      }>;
+      replyTo: {
+        id: string;
+        content: string;
+        sender: {
+          id: string;
+          name: string;
+          avatar: string | null;
+        };
+      } | null;
+    }>;
+  }> {
+    // Check if user is participant
+    const isParticipant = await this.roomRepo.isParticipant(roomId, userId);
+    if (!isParticipant) {
+      throw new ForbiddenError(ERROR_MESSAGES.ACCESS_DENIED);
+    }
+
+    // Use Prisma directly for complex query with messages
+    // This is acceptable as it's a service method, not direct page access
+    const room = await prisma.chatRoom.findFirst({
+      where: {
+        id: roomId,
+        participants: {
+          some: {
+            userId: userId,
+          },
+        },
+      },
+      include: {
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatar: true,
+                status: true,
+                lastSeen: true,
+              },
+            },
+          },
+        },
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
+        messages: {
+          orderBy: {
+            createdAt: "asc",
+          },
+          take: messageLimit,
+          include: {
+            sender: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+            reactions: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatar: true,
+                  },
+                },
+              },
+            },
+            readReceipts: {
+              where: {
+                userId: userId,
+              },
+            },
+            replyTo: {
+              include: {
+                sender: {
+                  select: {
+                    id: true,
+                    name: true,
+                    avatar: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!room) {
+      throw new NotFoundError(ERROR_MESSAGES.ROOM_NOT_FOUND);
+    }
+
+    return room as RoomWithRelations & {
+      messages: Array<{
+        id: string;
+        content: string;
+        type: string;
+        fileUrl: string | null;
+        fileName: string | null;
+        fileSize: number | null;
+        fileType: string | null;
+        isEdited: boolean;
+        isDeleted: boolean;
+        replyToId: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        senderId: string;
+        roomId: string;
+        sender: {
+          id: string;
+          name: string;
+          avatar: string | null;
+        };
+        reactions: Array<{
+          emoji: string;
+          user: {
+            id: string;
+            name: string;
+            avatar: string | null;
+          };
+        }>;
+        readReceipts: Array<{
+          id: string;
+          userId: string;
+          readAt: Date;
+        }>;
+        replyTo: {
+          id: string;
+          content: string;
+          sender: {
+            id: string;
+            name: string;
+            avatar: string | null;
+          };
+        } | null;
+      }>;
+    };
   }
 
   /**

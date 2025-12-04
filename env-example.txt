@@ -63,3 +63,21 @@ REDIS_HOST=localhost
 NEXT_PUBLIC_VAPID_PUBLIC_KEY=BDagaqvePCafs0EmjDl0jG8lAMQaIB_gIdNdLIAUx9E7cfP8ZFBQ9l2tiydnnyxv9DpgYhq9btSCV0_lO2ie4So
 VAPID_PRIVATE_KEY=Qg2JgKdayfY6KEm-hCjkgYc3kNBDPh2Nn6hXcffneT8
 NEXT_PUBLIC_VAPID_SUBJECT=mailto:admin@example.com
+
+# ================================
+# Sentry Error Tracking (Optional)
+# ================================
+# Get your DSN from https://chatflow.sentry.io/settings/projects/javascript-nextjs/keys/
+# Or use the DSN from the wizard-generated config files
+NEXT_PUBLIC_SENTRY_DSN="https://dc96bfd04a798a0ae84a0c38d7d77e01@o4510472153268224.ingest.de.sentry.io/4510472158773328"
+NEXT_PUBLIC_SENTRY_ENABLED="true"  # Set to "true" to enable Sentry (even in development)
+SENTRY_SEND_PII="false"  # Set to "true" to send user PII (email, IP, etc.) - NOT recommended for privacy
+
+# ================================
+# Logger Configuration
+# ================================
+# Logger type: "file" (default, writes to app.log), "sentry", or "console"
+# Default: "file" - writes structured JSON logs to app.log (similar to message-flow.log)
+# Can also be configured in database config table (logger.type, logger.file.path)
+LOGGER_TYPE="file"  # Options: "file", "sentry", "console"
+LOG_FILE_PATH="app.log"  # Optional: Custom path for file logger (default: app.log in project root)

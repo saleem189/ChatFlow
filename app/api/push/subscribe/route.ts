@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { handleError, UnauthorizedError, ValidationError } from "@/lib/errors";
-import { pushService } from "@/lib/services/push.service";
+import { getService } from "@/lib/di";
+import { PushService } from "@/lib/services/push.service";
 
 export async function POST(request: NextRequest) {
     try {
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
             return handleError(new ValidationError('Subscription data is required'));
         }
 
+        const pushService = await getService<PushService>('pushService');
         await pushService.saveSubscription(session.user.id, subscription);
 
         return NextResponse.json({ success: true });

@@ -1,16 +1,46 @@
+// ================================
+// Push Notification Service
+// ================================
+// Handles push notifications using Web Push API
+// Uses VAPID keys for authentication
+// SERVER-ONLY: Uses Node.js modules
+
+import 'server-only'; // Mark as server-only to prevent client bundling
+
 import webpush from 'web-push';
 import prisma from '@/lib/prisma';
 import { getService } from '@/lib/di';
 import { ConfigService } from '@/lib/config/config.service';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
+
+/**
+ * Push subscription structure
+ */
+export interface PushSubscription {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
 
 export class PushService {
   private webpush: typeof webpush;
   private configService: ConfigService | null = null;
 
-  constructor() {
+  constructor(private logger: ILogger) {
     this.webpush = webpush;
     this.initializeVAPID();
+  }
+
+  /**
+   * Get config service (lazy initialization)
+   */
+  private async getConfigService(): Promise<ConfigService> {
+    if (!this.configService) {
+      this.configService = await getService<ConfigService>('configService');
+    }
+    return this.configService;
   }
 
   /**
@@ -20,30 +50,36 @@ export class PushService {
   private async initializeVAPID(): Promise<void> {
     try {
       // Get from ConfigService (automatically checks DB -> Redis -> Env vars)
-      this.configService = getService<ConfigService>('configService');
+      const configService = await this.getConfigService();
 
-      const subject = await this.configService.get<string>('push.vapid.subject');
-      const publicKey = await this.configService.get<string>('push.vapid.publicKey');
-      const privateKey = await this.configService.get<string>('push.vapid.privateKey');
+      const subject = await configService.get<string>('push.vapid.subject');
+      const publicKey = await configService.get<string>('push.vapid.publicKey');
+      const privateKey = await configService.get<string>('push.vapid.privateKey');
 
       if (subject && publicKey && privateKey) {
         this.webpush.setVapidDetails(subject, publicKey, privateKey);
-        logger.log('✅ VAPID keys configured for push notifications');
+        this.logger.log('✅ VAPID keys configured for push notifications');
       } else {
-        logger.warn('⚠️ VAPID keys not found. Push notifications will not work.');
+        this.logger.warn('⚠️ VAPID keys not found. Push notifications will not work.', {
+          component: 'PushService',
+        });
       }
     } catch (error) {
-      logger.warn('⚠️ VAPID keys not found. Push notifications will not work.');
-      logger.error('Error initializing VAPID:', error);
+      this.logger.warn('⚠️ VAPID keys not found. Push notifications will not work.', {
+        component: 'PushService',
+      });
+      this.logger.error('Error initializing VAPID:', error, {
+        component: 'PushService',
+      });
     }
   }
 
   /**
    * Save a push subscription for a user
    */
-  async saveSubscription(userId: string, subscription: any) {
+  async saveSubscription(userId: string, subscription: PushSubscription): Promise<{ id: string; userId: string; endpoint: string; p256dh: string; auth: string; createdAt: Date; updatedAt: Date }> {
     try {
-      logger.log('saveSubscription called with:', { userId, subscription });
+      this.logger.log('saveSubscription called with:', userId, subscription);
 
       if (!userId || !subscription || !subscription.endpoint) {
         throw new Error('Invalid subscription data');
@@ -53,7 +89,7 @@ export class PushService {
       const p256dh = subscription.keys?.p256dh;
       const auth = subscription.keys?.auth;
 
-      logger.log('Extracted keys:', { p256dh: !!p256dh, auth: !!auth });
+      this.logger.log('Extracted keys:', p256dh ? 'p256dh exists' : 'p256dh missing', auth ? 'auth exists' : 'auth missing');
 
       if (!p256dh || !auth) {
         throw new Error('Invalid subscription keys');
@@ -68,12 +104,12 @@ export class PushService {
       });
 
       if (existing) {
-        logger.log('Subscription already exists:', existing.id);
+        this.logger.log('Subscription already exists:', existing.id);
         return existing;
       }
 
       // Create new subscription
-      logger.log('Creating new subscription...');
+      this.logger.log('Creating new subscription...');
       const result = await prisma.pushSubscription.create({
         data: {
           userId,
@@ -82,10 +118,13 @@ export class PushService {
           auth,
         },
       });
-      logger.log('Subscription created:', result.id);
+      this.logger.log('Subscription created:', result.id);
       return result;
     } catch (error) {
-      logger.error('Error in saveSubscription:', error);
+      this.logger.error('Error in saveSubscription:', error, {
+        component: 'PushService',
+        userId,
+      });
       throw error;
     }
   }
@@ -126,9 +165,13 @@ export class PushService {
             await prisma.pushSubscription.delete({
               where: { id: sub.id },
             });
-            logger.log(`Removed invalid subscription ${sub.id}`);
+            this.logger.log(`Removed invalid subscription ${sub.id}`);
           } else {
-            logger.error(`Error sending push notification to ${sub.id}:`, error);
+            this.logger.error(`Error sending push notification to ${sub.id}:`, error, {
+              component: 'PushService',
+              subscriptionId: sub.id,
+              userId,
+            });
           }
           return { success: false, subscriptionId: sub.id, error };
         }
@@ -150,16 +193,17 @@ export class PushService {
         }
         return { subscriptionId: r.value.subscriptionId, error: r.value.error?.message || 'Unknown error' };
       });
-      logger.warn(
+      this.logger.warn(
         `Failed to send ${failed.length}/${subscriptions.length} push notifications`,
-        { failed: failedDetails }
+        { component: 'PushService', userId, failed: failedDetails }
       );
     }
     
     if (successful.length > 0) {
-      logger.log(`✅ Successfully sent ${successful.length}/${subscriptions.length} push notifications`);
+      this.logger.log(`✅ Successfully sent ${successful.length}/${subscriptions.length} push notifications`);
     }
   }
 }
 
-export const pushService = new PushService();
+// Note: pushService singleton is now created in DI container (providers.ts)
+// This export is kept for backward compatibility during migration

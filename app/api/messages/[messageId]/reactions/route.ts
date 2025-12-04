@@ -9,13 +9,12 @@ import { handleError, UnauthorizedError } from "@/lib/errors";
 import { getService } from "@/lib/di";
 import { MessageService } from "@/lib/services/message.service";
 
-// Get services from DI container
-const messageService = getService<MessageService>('messageService');
+// Services are resolved asynchronously inside route handlers
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     messageId: string;
-  };
+  }>;
 }
 
 /**
@@ -32,7 +31,10 @@ export async function POST(
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    const { messageId } = params;
+    // Get service from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+
+    const { messageId } = await params;
     const { emoji } = await request.json();
 
     const result = await messageService.toggleReaction(
@@ -61,7 +63,10 @@ export async function GET(
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    const { messageId } = params;
+    // Get service from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+
+    const { messageId } = await params;
     const reactions = await messageService.getReactions(messageId, session.user.id);
 
     return NextResponse.json({ reactions });

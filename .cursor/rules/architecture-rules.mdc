@@ -1,0 +1,60 @@
+---
+description: Architectural standards and file organization rules for the project.
+globs: *
+alwaysApply: false
+---
+
+# Architecture Rules
+
+This file defines the architectural standards and file organization rules for the ChatFlow project. All AI agents and developers should adhere to these rules to maintain consistency.
+
+## Simplicity
+
+- **No Over-engineering:** Avoid complex solutions when simple ones suffice. Do not add features or abstractions "just in case".
+
+## File Organization
+
+### Feature-Based Structure
+We are moving towards a feature-based directory structure. New features should be organized by domain rather than technology.
+
+**Preferred Structure:**
+```
+app/
+  (feature-name)/
+    components/
+    hooks/
+    services/
+    page.tsx
+  shared/
+    components/
+    hooks/
+    utils/
+```
+
+### Shared Utilities
+Shared utilities should be modular and organized by domain in `lib/utils/`.
+- Avoid adding to a monolithic `lib/utils.ts`.
+- Create specific files like `lib/utils/date/formatter.ts`, `lib/utils/string/sanitize.ts`.
+
+## API Layer
+
+### Standardization
+- **React Query:** Use React Query for all server state management.
+- **Hooks:** Create feature-specific query hooks in `hooks/api/` or within the feature directory.
+- **Deprecation:** Avoid using the legacy `useApi` hook. Use `useQueryApi` or custom React Query hooks instead.
+
+### Type Safety
+- **Strict Typing:** All API responses must be strictly typed.
+- **Interfaces:** Define interfaces for all API responses in `lib/types/api.ts` or feature-specific type files.
+- **No `any`:** Avoid using `any` in API response handling.
+
+## Configuration Management
+
+- **Centralized Config:** Use `ConfigService` for accessing application configuration.
+- **Type Safety:** Use type-safe getters for configuration values.
+- **Environment Variables:** Do not access `process.env` directly in components. Use the config service.
+
+## Error Handling
+
+- **Centralized Handling:** Use the `ErrorHandler` class (to be implemented in `lib/errors/handlers.ts`) for consistent error logging and user notification.
+- **Error Boundaries:** Ensure all major features are wrapped in Error Boundaries.

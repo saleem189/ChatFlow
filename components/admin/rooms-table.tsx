@@ -213,7 +213,7 @@ export function RoomsTable({ initialRooms }: RoomsTableProps) {
 
                 {/* Created */}
                 <td className="px-4 py-3 text-sm text-surface-500">
-                  {formatMessageTime(room.createdAt)}
+                  {formatMessageTime(room.createdAt instanceof Date ? room.createdAt.toISOString() : room.createdAt)}
                 </td>
 
                 {/* Actions */}

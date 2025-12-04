@@ -16,9 +16,7 @@ import { CACHE_HEADERS } from "@/lib/utils/cache-headers";
 import { validateRequest } from "@/lib/middleware/validate-request";
 import { createRoomSchema } from "@/lib/validations";
 
-// Get services from DI container
-const roomService = getService<RoomService>('roomService');
-const userRepo = getService<UserRepository>('userRepository');
+// Services are resolved asynchronously inside route handlers
 
 // Route segment config for caching
 export const dynamic = 'force-dynamic'; // Rooms are dynamic
@@ -28,12 +26,15 @@ export const revalidate = 60; // Revalidate every 60 seconds
  * GET /api/rooms
  * Get all chat rooms for the current user
  */
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
+
+    // Get services from DI container (async)
+    const roomService = await getService<RoomService>('roomService');
 
     // Rate limiting
     const rateLimit = await rateLimitMiddleware(request, apiRateLimiter, session.user.id);
@@ -64,12 +65,16 @@ export async function GET(request: NextRequest) {
  * POST /api/rooms
  * Create a new chat room or find/create DM
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
+
+    // Get services from DI container (async)
+    const roomService = await getService<RoomService>('roomService');
+    const userRepo = await getService<UserRepository>('userRepository');
 
     // Rate limiting
     const rateLimit = await rateLimitMiddleware(request, apiRateLimiter, session.user.id);
@@ -109,7 +114,7 @@ export async function POST(request: NextRequest) {
             id: p.user.id,
             name: p.user.name,
             avatar: p.user.avatar,
-            status: p.user.status || 'offline',
+            status: p.user.status || 'OFFLINE',
           })),
         },
         existing,
@@ -133,7 +138,7 @@ export async function POST(request: NextRequest) {
             id: p.user.id,
             name: p.user.name,
             avatar: p.user.avatar,
-            status: p.user.status || 'offline',
+            status: p.user.status || 'OFFLINE',
           })),
         },
       }, { status: 201 });

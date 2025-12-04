@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
+import { useNotifications } from "@/lib/permissions";
 
 function urlBase64ToUint8Array(base64String: string) {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -20,24 +21,34 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export function usePushNotifications() {
-    const [permission, setPermission] = useState<NotificationPermission>("default");
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        if (typeof window !== "undefined" && "Notification" in window) {
-            setPermission(Notification.permission);
+    // Use centralized notifications permissions hook
+    const { 
+        isGranted: hasNotificationPermission, 
+        request: requestNotificationPermission,
+        status,
+        supported: notificationsSupported,
+    } = useNotifications({
+        onGranted: () => {
+            // Permission granted - continue with subscription
+        },
+        onDenied: () => {
+            toast.error("Notification permission denied");
+        },
+    });
 
-            // Check if already subscribed
-            if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.ready.then((registration) => {
-                    registration.pushManager.getSubscription().then((subscription) => {
-                        setIsSubscribed(!!subscription);
-                    });
+    // Check if already subscribed on mount
+    useEffect(() => {
+        if ("serviceWorker" in navigator && hasNotificationPermission) {
+            navigator.serviceWorker.ready.then((registration) => {
+                registration.pushManager.getSubscription().then((subscription) => {
+                    setIsSubscribed(!!subscription);
                 });
-            }
+            });
         }
-    }, []);
+    }, [hasNotificationPermission]);
 
     const subscribe = useCallback(async () => {
         if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
@@ -45,17 +56,21 @@ export function usePushNotifications() {
             return;
         }
 
+        if (!notificationsSupported) {
+            toast.error("Notifications are not supported in this browser");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            // 1. Request permission
-            const result = await Notification.requestPermission();
-            setPermission(result);
-
-            if (result !== "granted") {
-                toast.error("Permission denied");
-                setIsLoading(false);
-                return;
+            // 1. Request notification permission using centralized system
+            if (!hasNotificationPermission) {
+                await requestNotificationPermission();
+                if (!hasNotificationPermission) {
+                    setIsLoading(false);
+                    return;
+                }
             }
 
             // 2. Register Service Worker
@@ -113,7 +128,7 @@ export function usePushNotifications() {
     }, []);
 
     return {
-        permission,
+        permission: status.state === 'granted' ? 'granted' : status.state === 'denied' ? 'denied' : 'default',
         isSubscribed,
         isLoading,
         subscribe,

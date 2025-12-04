@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { logClientReceive } from "@/lib/message-flow-logger";
+import { getService } from "@/lib/di";
+import type { ILogger } from "@/lib/logger/logger.interface";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +21,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to log message receive:", error);
+    try {
+      const logger = await getService<ILogger>('logger');
+      logger.error('Failed to log message receive', error, {
+        component: 'DebugLogMessageReceiveAPI',
+      });
+    } catch {
+      // Logger not available, use console
+      console.error('[DebugLogMessageReceiveAPI] Failed to log message receive:', error);
+    }
     return NextResponse.json({ error: "Failed to log" }, { status: 500 });
   }
 }

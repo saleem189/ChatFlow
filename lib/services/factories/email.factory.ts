@@ -43,6 +43,26 @@ export interface BulkEmailResult {
   results: EmailResult[];
 }
 
+/**
+ * Email provider configuration interfaces
+ */
+export interface AWSSESConfig {
+  region?: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+}
+
+export interface SendGridConfig {
+  apiKey?: string;
+}
+
+export interface MailgunConfig {
+  apiKey?: string;
+  domain?: string;
+}
+
+export type EmailProviderConfig = AWSSESConfig | SendGridConfig | MailgunConfig | ServiceFactoryConfig;
+
 export interface EmailProvider {
   sendEmail(params: EmailParams): Promise<EmailResult>;
   sendBulk(params: BulkEmailParams): Promise<BulkEmailResult>;
@@ -58,9 +78,9 @@ export interface EmailProvider {
  * Returns dummy responses for testing
  */
 export class MockAWSSESProvider implements EmailProvider {
-  private config: { region?: string };
+  private config: AWSSESConfig;
 
-  constructor(config: any = {}) {
+  constructor(config: AWSSESConfig = {}) {
     this.config = config;
     logger.log('📧 Mock AWS SES Provider initialized');
   }
@@ -122,9 +142,9 @@ export class MockAWSSESProvider implements EmailProvider {
  * Returns dummy responses for testing
  */
 export class MockSendGridProvider implements EmailProvider {
-  private config: { apiKey?: string };
+  private config: SendGridConfig;
 
-  constructor(config: any = {}) {
+  constructor(config: SendGridConfig = {}) {
     this.config = config;
     logger.log('📧 Mock SendGrid Provider initialized');
   }
@@ -182,9 +202,9 @@ export class MockSendGridProvider implements EmailProvider {
  * Returns dummy responses for testing
  */
 export class MockMailgunProvider implements EmailProvider {
-  private config: { apiKey?: string; domain?: string };
+  private config: MailgunConfig;
 
-  constructor(config: any = {}) {
+  constructor(config: MailgunConfig = {}) {
     this.config = config;
     logger.log('📧 Mock Mailgun Provider initialized');
   }
@@ -247,9 +267,27 @@ export class EmailServiceFactory extends BaseServiceFactory<EmailProvider> {
     super('aws-ses'); // Default provider
     
     // Register mock providers
-    this.register('aws-ses', (config) => new MockAWSSESProvider(config));
-    this.register('sendgrid', (config) => new MockSendGridProvider(config));
-    this.register('mailgun', (config) => new MockMailgunProvider(config));
+    this.register('aws-ses', (config: ServiceFactoryConfig) => {
+      const awsConfig: AWSSESConfig = {
+        region: typeof config.region === 'string' ? config.region : undefined,
+        accessKeyId: typeof config.accessKeyId === 'string' ? config.accessKeyId : undefined,
+        secretAccessKey: typeof config.secretAccessKey === 'string' ? config.secretAccessKey : undefined,
+      };
+      return new MockAWSSESProvider(awsConfig);
+    });
+    this.register('sendgrid', (config: ServiceFactoryConfig) => {
+      const sgConfig: SendGridConfig = {
+        apiKey: typeof config.apiKey === 'string' ? config.apiKey : undefined,
+      };
+      return new MockSendGridProvider(sgConfig);
+    });
+    this.register('mailgun', (config: ServiceFactoryConfig) => {
+      const mgConfig: MailgunConfig = {
+        apiKey: typeof config.apiKey === 'string' ? config.apiKey : undefined,
+        domain: typeof config.domain === 'string' ? config.domain : undefined,
+      };
+      return new MockMailgunProvider(mgConfig);
+    });
   }
 
   protected getServiceType(): string {
@@ -277,7 +315,7 @@ export class EmailServiceFactory extends BaseServiceFactory<EmailProvider> {
   /**
    * Register a new email provider
    */
-  static registerProvider(name: string, factory: (config: any) => EmailProvider): void {
+  static registerProvider(name: string, factory: (config: EmailProviderConfig) => EmailProvider): void {
     const instance = this.getInstance();
     instance.register(name, factory);
   }

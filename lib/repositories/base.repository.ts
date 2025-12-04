@@ -28,13 +28,13 @@ export abstract class BaseRepository<T, CreateInput, UpdateInput> {
    * Find many records with optional filters
    */
   async findMany(
-    where?: any,
+    where?: Prisma.Args<T, 'findMany'>['where'],
     options?: {
       take?: number;
       skip?: number;
-      orderBy?: any;
-      include?: any;
-      select?: any;
+      orderBy?: Prisma.Args<T, 'findMany'>['orderBy'];
+      include?: Prisma.Args<T, 'findMany'>['include'];
+      select?: Prisma.Args<T, 'findMany'>['select'];
     }
   ): Promise<T[]> {
     return (this.prisma[this.modelName as keyof PrismaClient] as any).findMany({
@@ -46,7 +46,13 @@ export abstract class BaseRepository<T, CreateInput, UpdateInput> {
   /**
    * Find first record matching criteria
    */
-  async findFirst(where?: any, options?: { include?: any; select?: any }): Promise<T | null> {
+  async findFirst(
+    where?: Prisma.Args<T, 'findFirst'>['where'],
+    options?: {
+      include?: Prisma.Args<T, 'findFirst'>['include'];
+      select?: Prisma.Args<T, 'findFirst'>['select'];
+    }
+  ): Promise<T | null> {
     return (this.prisma[this.modelName as keyof PrismaClient] as any).findFirst({
       where,
       ...options,
@@ -84,7 +90,7 @@ export abstract class BaseRepository<T, CreateInput, UpdateInput> {
   /**
    * Count records matching criteria
    */
-  async count(where?: any): Promise<number> {
+  async count(where?: Prisma.Args<T, 'count'>['where']): Promise<number> {
     return (this.prisma[this.modelName as keyof PrismaClient] as any).count({
       where,
     });
@@ -94,7 +100,7 @@ export abstract class BaseRepository<T, CreateInput, UpdateInput> {
    * Upsert a record (create or update)
    */
   async upsert(
-    where: any,
+    where: Prisma.Args<T, 'upsert'>['where'],
     create: CreateInput,
     update: UpdateInput
   ): Promise<T> {

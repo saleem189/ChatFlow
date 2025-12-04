@@ -62,3 +62,6 @@ public/uploads/*
 public/avatars/*
 !public/avatars/.gitkeep
 
+
+# Sentry Config File
+.env.sentry-build-plugin

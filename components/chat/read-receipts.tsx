@@ -31,7 +31,6 @@ export function ReadReceipts({
             "drop-shadow-sm"
           )}
           strokeWidth={2.5}
-          title="Read"
         />
       ) : isDelivered ? (
         // Two gray ticks - Message delivered (recipient online)
@@ -41,7 +40,6 @@ export function ReadReceipts({
             "text-white/70 dark:text-white/60"
           )}
           strokeWidth={2.5}
-          title="Delivered"
         />
       ) : (
         // One gray tick - Message sent (recipient offline)
@@ -51,7 +49,6 @@ export function ReadReceipts({
             "text-white/60 dark:text-white/50"
           )}
           strokeWidth={2.5}
-          title="Sent"
         />
       )}
     </div>

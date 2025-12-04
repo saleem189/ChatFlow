@@ -21,7 +21,7 @@ export interface NetworkStatus {
   rtt?: number; // Round-trip time in ms
 }
 
-interface UseNetworkStatusOptions {
+export interface UseNetworkStatusOptions {
   /**
    * Threshold for slow connection (downlink in Mbps)
    * @default 1.5
@@ -41,7 +41,7 @@ interface UseNetworkStatusOptions {
   pollInterval?: number;
 }
 
-interface UseNetworkStatusReturn {
+export interface UseNetworkStatusReturn {
   status: NetworkStatus;
   isOnline: boolean;
   isSlowConnection: boolean;

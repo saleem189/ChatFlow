@@ -1,0 +1,29 @@
+---
+description: Apply this rule when creating commits, writing documentation, or preparing pull requests.
+globs: *
+alwaysApply: false
+---
+
+# Workflow Rules
+
+This file defines the development workflow and documentation standards for the ChatFlow project.
+
+## Commit Messages
+
+- **Conventional Commits:** Follow the Conventional Commits specification.
+  - `feat: add new chat bubble component`
+  - `fix: resolve message ordering issue`
+  - `chore: update dependencies`
+  - `docs: update API documentation`
+  - `refactor: simplify date formatting logic`
+
+## Documentation
+
+- **Code Comments:** Use TSDoc/JSDoc for all exported functions, classes, and interfaces. Explain *why* something is done, not just *what* it does.
+- **README:** Keep the project README and feature-specific READMEs up to date.
+- **Self-Documenting Code:** Prioritize clear variable and function names over comments.
+
+## Pull Requests
+
+- **Description:** All PRs must have a description explaining the changes, the "why", and how to test them.
+- **Checklist:** Ensure all tests pass, linting is clean, and no new build warnings are introduced before requesting review.

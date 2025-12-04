@@ -109,10 +109,15 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ preview });
-  } catch (error: any) {
-    console.error("Error fetching link preview:", error);
+  } catch (error: unknown) {
+    const { getService } = await import('@/lib/di');
+    const logger = await getService<import('@/lib/logger/logger.interface').ILogger>('logger');
+    logger.error('Error fetching link preview', error, {
+      component: 'LinkPreviewAPI',
+    });
     
-    if (error.name === "AbortError") {
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    if (errorObj.name === "AbortError") {
       return NextResponse.json(
         { error: "Request timeout" },
         { status: 408 }
@@ -120,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Failed to fetch link preview", details: error.message },
+      { error: "Failed to fetch link preview", details: errorObj.message },
       { status: 500 }
     );
   }

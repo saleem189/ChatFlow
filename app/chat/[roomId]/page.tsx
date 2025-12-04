@@ -6,93 +6,22 @@
 import { getServerSession } from "next-auth";
 import { notFound, redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import prisma from "@/lib/prisma";
 import { ChatRoom } from "@/components/chat/chat-room";
+import { toISOString } from "@/lib/utils/date-helpers";
+import type { IRoomService } from "@/lib/di/service-interfaces";
+import type { MessageType } from "@/lib/types/message.types";
 
 interface ChatRoomPageProps {
-  params: {
+  params: Promise<{
     roomId: string;
-  };
+  }>;
 }
 
-// Fetch room data and messages
+// Fetch room data and messages using service layer
 async function getRoomData(roomId: string, userId: string) {
-  // Find the room with participants and messages
-  const room = await prisma.chatRoom.findFirst({
-    where: {
-      id: roomId,
-      participants: {
-        some: {
-          userId: userId,
-        },
-      },
-    },
-    include: {
-      participants: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              avatar: true,
-              status: true,
-              lastSeen: true,
-            },
-          },
-        },
-      },
-      owner: {
-        select: {
-          id: true,
-        },
-      },
-      messages: {
-        orderBy: {
-          createdAt: "asc",
-        },
-        take: 100, // Load last 100 messages
-        include: {
-          sender: {
-            select: {
-              id: true,
-              name: true,
-              avatar: true,
-            },
-          },
-          reactions: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-          readReceipts: {
-            where: {
-              userId: userId,
-            },
-          },
-          replyTo: {
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  name: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  return room;
+  const { getService } = await import('@/lib/di');
+  const roomService = await getService<IRoomService>('roomService');
+  return await roomService.getRoomWithMessages(roomId, userId, 100);
 }
 
 export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
@@ -108,18 +37,41 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
     redirect("/admin");
   }
 
+  // Await params (Next.js 16 requirement)
+  const { roomId } = await params;
+
   // Fetch room data
-  const room = await getRoomData(params.roomId, session.user.id);
+  const room = await getRoomData(roomId, session.user.id);
 
   // If room not found or user is not a participant
   if (!room) {
     notFound();
   }
 
+
   // Transform messages for the client component
-  const messages = room.messages.map((message) => {
+  const messages = room.messages.map((message: {
+    id: string;
+    content: string;
+    type: string;
+    fileUrl: string | null;
+    fileName: string | null;
+    fileSize: number | null;
+    fileType: string | null;
+    isEdited: boolean;
+    isDeleted: boolean;
+    replyToId: string | null;
+    createdAt: Date | string;
+    updatedAt: Date | string;
+    senderId: string;
+    roomId: string;
+    sender: { id: string; name: string; avatar: string | null };
+    reactions: Array<{ emoji: string; user: { id: string; name: string; avatar: string | null } }>;
+    readReceipts: Array<{ id: string; userId: string; readAt: Date | string }>;
+    replyTo: { id: string; content: string; sender: { id: string; name: string; avatar: string | null } } | null;
+  }) => {
     // Group reactions by emoji
-    const reactionsByEmoji = message.reactions.reduce((acc, reaction) => {
+    const reactionsByEmoji = message.reactions.reduce((acc: Record<string, Array<{ id: string; name: string; avatar: string | null }>>, reaction: { emoji: string; user: { id: string; name: string; avatar: string | null } }) => {
       if (!acc[reaction.emoji]) {
         acc[reaction.emoji] = [];
       }
@@ -129,12 +81,12 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
         avatar: reaction.user.avatar,
       });
       return acc;
-    }, {} as Record<string, Array<{ id: string; name: string; avatar: string | null }>>);
+    }, {});
 
     return {
       id: message.id,
       content: message.content,
-      type: message.type,
+      type: message.type as MessageType,
       fileUrl: message.fileUrl,
       fileName: message.fileName,
       fileSize: message.fileSize,
@@ -150,7 +102,7 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
       } : null,
       reactions: reactionsByEmoji,
       isRead: message.readReceipts.length > 0,
-      createdAt: message.createdAt.toISOString(),
+      createdAt: toISOString(message.createdAt)!, // Always returns string with default fallback
       senderId: message.senderId,
       senderName: message.sender.name,
       senderAvatar: message.sender.avatar,
@@ -160,7 +112,7 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
 
   // Get other participants for DM display name
   const otherParticipants = room.participants.filter(
-    (p) => p.user.id !== session.user.id
+    (p: { user: { id: string } }) => p.user.id !== session.user.id
   );
 
   // Room display name (for DMs, show other user's name)
@@ -173,12 +125,15 @@ export default async function ChatRoomPage({ params }: ChatRoomPageProps) {
       roomId={room.id}
       roomName={displayName}
       isGroup={room.isGroup}
-      participants={room.participants.map((p) => ({
+      participants={room.participants.map((p: {
+        user: { id: string; name: string; avatar: string | null; status: string; lastSeen?: Date | string };
+        role: string;
+      }) => ({
         id: p.user.id,
         name: p.user.name,
         avatar: p.user.avatar,
         status: p.user.status,
-        lastSeen: p.user.lastSeen?.toISOString(),
+        lastSeen: toISOString(p.user.lastSeen),
         role: p.role, // "admin" or "member" in RoomParticipant
         isOwner: room.owner.id === p.user.id,
       }))}

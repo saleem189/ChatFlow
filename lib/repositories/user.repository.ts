@@ -6,6 +6,7 @@
 import { PrismaClient, User, Prisma } from '@prisma/client';
 import { BaseRepository } from './base.repository';
 import { CacheService } from '@/lib/cache/cache.service';
+import type { UserStatus } from '@/lib/types/user.types';
 
 export type UserWithRelations = Prisma.UserGetPayload<{
   select: {
@@ -74,7 +75,7 @@ export class UserRepository extends BaseRepository<
    * Update user status
    * Invalidates cache on update
    */
-  async updateStatus(userId: string, status: string): Promise<User> {
+  async updateStatus(userId: string, status: UserStatus): Promise<User> {
     const result = await this.prisma.user.update({
       where: { id: userId },
       data: { status, lastSeen: new Date() },

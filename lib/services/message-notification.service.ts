@@ -3,15 +3,16 @@
 // ================================
 // Handles push notifications for messages
 
-import { RoomRepository } from '@/lib/repositories/room.repository';
+import { RoomRepository, RoomWithRelations } from '@/lib/repositories/room.repository';
 import { QueueService } from '@/lib/queue/queue-service';
 import { PushService } from '@/lib/services/push.service';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
 
 export class MessageNotificationService {
   constructor(
     private roomRepo: RoomRepository,
     private queueService: QueueService,
+    private logger: ILogger,
     private pushService?: PushService // Optional - fallback only
   ) {}
 
@@ -35,7 +36,11 @@ export class MessageNotificationService {
       const notification = this.buildNotificationPayload(room, senderId, content, type, fileName);
       await this.sendNotificationsToRecipients(recipients, notification);
     } catch (error) {
-      logger.error('Failed to send push notifications:', error);
+      this.logger.error('Failed to send push notifications:', error, {
+        component: 'MessageNotificationService',
+        roomId,
+        senderId,
+      });
       throw error;
     }
   }
@@ -46,7 +51,10 @@ export class MessageNotificationService {
   private async getRoomForNotifications(roomId: string) {
     const room = await this.roomRepo.findByIdWithRelations(roomId);
     if (!room?.participants || !Array.isArray(room.participants)) {
-      logger.warn('Room participants not available for push notifications');
+      this.logger.warn('Room participants not available for push notifications', {
+        component: 'MessageNotificationService',
+        roomId,
+      });
       return null;
     }
     return room;
@@ -55,21 +63,24 @@ export class MessageNotificationService {
   /**
    * Get notification recipients (exclude sender)
    */
-  private getNotificationRecipients(room: any, senderId: string) {
-    return room.participants.filter((p: any) => p.userId !== senderId);
+  private getNotificationRecipients(
+    room: RoomWithRelations,
+    senderId: string
+  ): Array<{ userId: string; user: { id: string; name: string; avatar: string | null; email: string | null; status: string | null } }> {
+    return room.participants.filter((p) => p.userId !== senderId);
   }
 
   /**
    * Build notification payload
    */
   private buildNotificationPayload(
-    room: any,
+    room: RoomWithRelations,
     senderId: string,
     content: string,
     type: string,
     fileName?: string
-  ) {
-    const sender = room.participants.find((p: any) => p.userId === senderId)?.user;
+  ): { title: string; body: string; data: { roomId: string; messageId?: string; type: string } } {
+    const sender = room.participants.find((p) => p.userId === senderId)?.user;
     if (!sender) {
       throw new Error('Sender not found in room participants');
     }
@@ -79,7 +90,14 @@ export class MessageNotificationService {
     const url = `/chat?roomId=${room.id}`;
     const icon = sender.avatar || '/icon-192x192.png';
 
-    return { title, body, url, icon };
+    return { 
+      title, 
+      body, 
+      data: { 
+        roomId: room.id, 
+        type 
+      } 
+    };
   }
 
   /**
@@ -99,9 +117,14 @@ export class MessageNotificationService {
   /**
    * Send notifications to recipients via queue
    */
-  private async sendNotificationsToRecipients(recipients: any[], notification: any) {
+  private async sendNotificationsToRecipients(
+    recipients: Array<{ userId: string; user: { id: string; name: string; avatar: string | null; email: string | null; status: string | null } }>,
+    notification: { title: string; body: string; data: { roomId: string; messageId?: string; type: string } }
+  ): Promise<void> {
     if (!this.queueService) {
-      logger.warn('QueueService not available, skipping push notifications');
+      this.logger.warn('QueueService not available, skipping push notifications', {
+        component: 'MessageNotificationService',
+      });
       return;
     }
 
@@ -115,9 +138,13 @@ export class MessageNotificationService {
     // Log failures
     results.forEach((result, index) => {
       if (result.status === 'rejected') {
-        logger.error(
+        this.logger.error(
           `Failed to queue push notification for user ${recipients[index].userId}:`,
-          result.reason
+          result.reason,
+          {
+            component: 'MessageNotificationService',
+            userId: recipients[index].userId,
+          }
         );
       }
     });

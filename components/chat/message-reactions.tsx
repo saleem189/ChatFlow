@@ -48,11 +48,8 @@ export function MessageReactions({
       
       // Emit socket event for real-time update
       const socket = getSocket();
-      socket.emit("reaction-updated", {
-        messageId,
-        roomId,
-        reactions: data.reactions,
-      });
+      // Note: reaction-updated is handled via server-side event, not client emit
+      // The server will broadcast the update to all clients
       
       onReactionChange?.();
     } catch (error) {

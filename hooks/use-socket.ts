@@ -60,6 +60,14 @@ export function useSocket(
     try {
       // Get user session BEFORE creating socket connection
       const sessionRes = await fetch("/api/auth/session");
+      
+      // Check if request was successful (even if there were warnings)
+      if (!sessionRes.ok) {
+        console.warn('⚠️ Failed to fetch session for socket connection');
+        setIsConnected(false);
+        return;
+      }
+      
       const session = await sessionRes.json();
 
       if (!session?.user?.id) {
@@ -139,17 +147,10 @@ export function useSocket(
     }, 100);
   }, [connect, disconnect]);
 
-  // Store connect function in ref to avoid dependency issues
-  const connectRef = useRef<() => Promise<void>>();
-
-  useEffect(() => {
-    connectRef.current = connect;
-  }, [connect]);
-
   // Auto-connect on mount
   useEffect(() => {
-    if (autoConnect && connectRef.current) {
-      connectRef.current();
+    if (autoConnect) {
+      connect();
     }
 
     return () => {
@@ -159,7 +160,7 @@ export function useSocket(
         cleanupRef.current = null;
       }
     };
-  }, [autoConnect]); // Only autoConnect in dependencies - connect function accessed via ref
+  }, [autoConnect, connect]); // Include connect - it's memoized with stable dependencies
 
   return {
     socket,

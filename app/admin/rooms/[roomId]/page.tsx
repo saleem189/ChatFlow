@@ -54,13 +54,15 @@ async function getRoomData(roomId: string) {
 }
 
 interface RoomDetailPageProps {
-  params: {
+  params: Promise<{
     roomId: string;
-  };
+  }>;
 }
 
 export default async function RoomDetailPage({ params }: RoomDetailPageProps) {
-  const room = await getRoomData(params.roomId);
+  // Await params (Next.js 16 requirement)
+  const { roomId } = await params;
+  const room = await getRoomData(roomId);
 
   if (!room) {
     notFound();

@@ -29,7 +29,7 @@ interface VirtualizedMessageListProps {
     onMouseUp: (e: React.TouchEvent | React.MouseEvent) => void;
     onMouseLeave: (e: React.TouchEvent | React.MouseEvent) => void;
   };
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 interface VirtualizedItem {

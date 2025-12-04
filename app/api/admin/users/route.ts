@@ -13,8 +13,7 @@ import { getService } from "@/lib/di";
 import { AdminService } from "@/lib/services/admin.service";
 import { CACHE_HEADERS } from "@/lib/utils/cache-headers";
 
-// Get services from DI container
-const adminService = getService<AdminService>('adminService');
+// Services are resolved asynchronously inside route handlers
 
 // Route segment config for caching
 export const dynamic = 'force-dynamic'; // Admin users are dynamic
@@ -24,7 +23,7 @@ export const revalidate = 60; // Revalidate every 60 seconds
  * GET /api/admin/users
  * Get all users with pagination and search
  */
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -33,6 +32,9 @@ export async function GET(request: NextRequest) {
     if (session.user.role !== "ADMIN") {
       return handleError(new ForbiddenError('Admin access required'));
     }
+
+    // Get service from DI container (async)
+    const adminService = await getService<AdminService>('adminService');
 
     // Parse query parameters for pagination and search
     const { searchParams } = new URL(request.url);
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
  * PATCH /api/admin/users
  * Update a user
  */
-export async function PATCH(request: NextRequest) {
+export async function PATCH(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -68,6 +70,9 @@ export async function PATCH(request: NextRequest) {
     if (session.user.role !== "ADMIN") {
       return handleError(new ForbiddenError('Admin access required'));
     }
+
+    // Get service from DI container (async)
+    const adminService = await getService<AdminService>('adminService');
 
     const body = await request.json();
     const { userId, name, email, role, status } = body;
@@ -83,7 +88,7 @@ export async function PATCH(request: NextRequest) {
  * DELETE /api/admin/users
  * Delete a user
  */
-export async function DELETE(request: NextRequest) {
+export async function DELETE(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -92,6 +97,9 @@ export async function DELETE(request: NextRequest) {
     if (session.user.role !== "ADMIN") {
       return handleError(new ForbiddenError('Admin access required'));
     }
+
+    // Get service from DI container (async)
+    const adminService = await getService<AdminService>('adminService');
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");

@@ -2,19 +2,17 @@
 // Queue Service
 // ================================
 // Simple service for adding jobs to queues
+// SERVER-ONLY: Uses BullMQ (Node.js only)
+
+import 'server-only'; // Mark as server-only to prevent client bundling
 
 import { pushNotificationQueue, fileProcessingQueue } from './queues';
 import { JOB_TYPES } from './queues';
-
-// Simple logger for queue service
-const logger = {
-  log: (msg: string, ...args: any[]) => console.log(`[QueueService] ${msg}`, ...args),
-  error: (msg: string, ...args: any[]) => console.error(`[QueueService] ❌ ${msg}`, ...args),
-};
+import type { ILogger } from '@/lib/logger/logger.interface';
 
 export class QueueService {
-  constructor() {
-    // Service can be extended with dependencies if needed
+  constructor(private logger: ILogger) {
+    // Logger injected via DI for consistent logging
   }
 
   /**
@@ -46,10 +44,17 @@ export class QueueService {
         }
       );
 
-      logger.log(`📥 Added push notification job ${job.id} for user ${userId}`);
+      this.logger.log('Added push notification job', {
+        component: 'QueueService',
+        jobId: job.id,
+        userId,
+      });
       return job.id!;
-    } catch (error: any) {
-      logger.error('Failed to add push notification job:', error.message);
+    } catch (error: unknown) {
+      this.logger.error('Failed to add push notification job', error, {
+        component: 'QueueService',
+        userId,
+      });
       throw error;
     }
   }
@@ -86,10 +91,17 @@ export class QueueService {
         }
       );
 
-      logger.log(`📥 Added image processing job ${job.id} for ${filePath}`);
+      this.logger.log('Added image processing job', {
+        component: 'QueueService',
+        jobId: job.id,
+        filePath,
+      });
       return job.id!;
-    } catch (error: any) {
-      logger.error('Failed to add image processing job:', error.message);
+    } catch (error: unknown) {
+      this.logger.error('Failed to add image processing job', error, {
+        component: 'QueueService',
+        filePath,
+      });
       throw error;
     }
   }
@@ -116,10 +128,17 @@ export class QueueService {
         }
       );
 
-      logger.log(`📥 Added video processing job ${job.id} for ${filePath}`);
+      this.logger.log('Added video processing job', {
+        component: 'QueueService',
+        jobId: job.id,
+        filePath,
+      });
       return job.id!;
-    } catch (error: any) {
-      logger.error('Failed to add video processing job:', error.message);
+    } catch (error: unknown) {
+      this.logger.error('Failed to add video processing job', error, {
+        component: 'QueueService',
+        filePath,
+      });
       throw error;
     }
   }
@@ -146,10 +165,17 @@ export class QueueService {
         }
       );
 
-      logger.log(`📥 Added avatar optimization job ${job.id} for user ${userId}`);
+      this.logger.log('Added avatar optimization job', {
+        component: 'QueueService',
+        jobId: job.id,
+        userId,
+      });
       return job.id!;
-    } catch (error: any) {
-      logger.error('Failed to add avatar optimization job:', error.message);
+    } catch (error: unknown) {
+      this.logger.error('Failed to add avatar optimization job', error, {
+        component: 'QueueService',
+        userId,
+      });
       throw error;
     }
   }
@@ -197,5 +223,21 @@ export class QueueService {
   }
 }
 
-export const queueService = new QueueService();
+// Export singleton for backward compatibility during migration
+// Note: Prefer using DI container: getService<QueueService>('queueService')
+let _queueServiceInstance: QueueService | null = null;
+
+export function getQueueService(): QueueService {
+  if (!_queueServiceInstance) {
+    // Import DI container to get logger (lazy import to avoid circular dependencies)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getService } = require('@/lib/di');
+    const logger = getService('logger') as ILogger;
+    _queueServiceInstance = new QueueService(logger);
+  }
+  return _queueServiceInstance;
+}
+
+// Export singleton for backward compatibility
+export const queueService = getQueueService();
 

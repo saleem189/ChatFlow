@@ -5,29 +5,52 @@
 // Provides common functionality for runtime service selection
 
 import { ConfigService } from '@/lib/config/config.service';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
 
 export interface ServiceFactoryConfig {
   provider?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
  * Base factory class for service factories
  */
 export abstract class BaseServiceFactory<T> {
-  protected providers = new Map<string, (config: any) => T | Promise<T>>();
+  protected providers = new Map<string, (config: ServiceFactoryConfig) => T | Promise<T>>();
   protected defaultProvider: string;
+  private logger: ILogger | null = null;
 
   constructor(defaultProvider: string) {
     this.defaultProvider = defaultProvider;
   }
 
   /**
+   * Get logger from DI (lazy load to avoid circular dependencies)
+   */
+  private async getLogger(): Promise<ILogger> {
+    if (this.logger) return this.logger;
+    try {
+      const { getService } = await import('@/lib/di');
+      this.logger = await getService<ILogger>('logger');
+      return this.logger;
+    } catch (error) {
+      // Fallback to console if DI not available (shouldn't happen in production)
+      return {
+        log: (...args: unknown[]) => console.log(...args),
+        info: () => {},
+        warn: () => {},
+        error: (...args: unknown[]) => console.error(...args),
+        performance: () => {},
+      } as ILogger;
+    }
+  }
+
+  /**
    * Register a provider implementation
    */
-  register(name: string, factory: (config: any) => T | Promise<T>): void {
+  async register(name: string, factory: (config: ServiceFactoryConfig) => T | Promise<T>): Promise<void> {
     this.providers.set(name, factory);
+    const logger = await this.getLogger();
     logger.log(`✅ Registered ${this.getServiceType()} provider: ${name}`);
   }
 
@@ -61,10 +84,17 @@ export abstract class BaseServiceFactory<T> {
     // Create instance
     try {
       const instance = await factory(providerConfig);
+      const logger = await this.getLogger();
       logger.log(`✅ Created ${this.getServiceType()} service with provider: ${providerName}`);
       return instance;
-    } catch (error: any) {
-      logger.error(`Error creating ${this.getServiceType()} service with provider '${providerName}':`, error);
+    } catch (error: unknown) {
+      const logger = await this.getLogger();
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`Error creating ${this.getServiceType()} service with provider '${providerName}':`, error instanceof Error ? error : new Error(errorMessage), {
+        component: 'BaseServiceFactory',
+        serviceType: this.getServiceType(),
+        provider: providerName,
+      });
       throw error;
     }
   }
@@ -96,9 +126,9 @@ export abstract class BaseServiceFactory<T> {
   private async getConfigService(): Promise<ConfigService | null> {
     try {
       const { getService } = await import('@/lib/di');
-      return getService<ConfigService>('configService');
+      return await getService<ConfigService>('configService');
     } catch (error) {
-      logger.warn('ConfigService not available, using defaults');
+      // ConfigService not available, return null (will use defaults)
       return null;
     }
   }
@@ -109,7 +139,8 @@ export abstract class BaseServiceFactory<T> {
   private async getProviderFromConfig(configService: ConfigService | null): Promise<string | null> {
     if (!configService) return null;
     try {
-      return await configService.get<string>(this.getConfigKey(), null);
+      const value = await configService.get<string>(this.getConfigKey(), undefined);
+      return value ?? null;
     } catch (error) {
       return null;
     }
@@ -121,7 +152,7 @@ export abstract class BaseServiceFactory<T> {
   private async getProviderConfig(
     configService: ConfigService | null,
     providerName: string
-  ): Promise<any> {
+  ): Promise<ServiceFactoryConfig> {
     if (!configService) return {};
     try {
       return await configService.get(`${this.getConfigKey()}.providers.${providerName}`, {});

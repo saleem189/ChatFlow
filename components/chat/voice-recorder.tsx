@@ -2,6 +2,7 @@
 // Voice Recorder Component
 // ================================
 // Records audio using browser MediaRecorder API
+// Now uses centralized permissions system
 
 "use client";
 
@@ -9,6 +10,7 @@ import { useState, useRef, useEffect } from "react";
 import { Mic, Square, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useMicrophone } from "@/lib/permissions";
 
 interface VoiceRecorderProps {
   onRecordingComplete: (audioBlob: Blob, duration: number) => void;
@@ -23,7 +25,6 @@ export function VoiceRecorder({
 }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -31,25 +32,44 @@ export function VoiceRecorder({
   const streamRef = useRef<MediaStream | null>(null);
   const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Request microphone permission
-  useEffect(() => {
-    const requestPermission = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((track) => track.stop()); // Stop immediately
-        setHasPermission(true);
-      } catch (error) {
-        console.error("Microphone permission denied:", error);
-        setHasPermission(false);
-      }
-    };
-
-    requestPermission();
-  }, []);
+  // Use centralized microphone permissions hook
+  const { 
+    isGranted: hasPermission, 
+    request: requestPermission, 
+    isRequesting,
+    supported,
+  } = useMicrophone({
+    onGranted: () => {
+      // Permission granted - no need to show toast, user will see recording start
+    },
+    onDenied: () => {
+      toast.error("Microphone permission denied. Please allow microphone access to record voice messages.");
+    },
+    onError: (error) => {
+      console.error("Microphone permission error:", error);
+      toast.error("Failed to access microphone. Please try again.");
+    },
+  });
 
   const startRecording = async () => {
+    // Check if microphone is supported
+    if (!supported) {
+      toast.error("Microphone access is not supported in this browser. Please use a modern browser.");
+      return;
+    }
+
+    // Request permission if not granted
+    if (!hasPermission) {
+      await requestPermission();
+      // Check again after request
+      if (!hasPermission) {
+        return; // Permission was denied
+      }
+    }
+
     try {
       // Request microphone access
+      // The permissions system already handled the permission request
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -128,8 +148,19 @@ export function VoiceRecorder({
       }, 1000);
     } catch (error) {
       console.error("Error starting recording:", error);
-      toast.error("Failed to access microphone. Please check permissions.");
-      setHasPermission(false);
+      
+      // Show user-friendly error message
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          toast.error("Microphone permission denied. Please allow microphone access to record voice messages.");
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+          toast.error("No microphone found. Please connect a microphone and try again.");
+        } else {
+          toast.error("Failed to access microphone. Please try again.");
+        }
+      } else {
+        toast.error("Failed to access microphone. Please try again.");
+      }
     }
   };
 
@@ -180,16 +211,6 @@ export function VoiceRecorder({
     };
   }, []);
 
-  if (hasPermission === false) {
-    return (
-      <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-        <p className="text-sm text-red-600 dark:text-red-400">
-          Microphone access denied. Please enable microphone permissions in your browser settings.
-        </p>
-      </div>
-    );
-  }
-
   if (isProcessing) {
     return (
       <div className="flex items-center gap-3 px-4 py-3 bg-surface-100 dark:bg-surface-800 rounded-lg">
@@ -231,17 +252,26 @@ export function VoiceRecorder({
   return (
     <button
       onClick={startRecording}
-      disabled={hasPermission !== true}
+      disabled={isRequesting}
       className={cn(
         "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200",
         "hover:scale-110 active:scale-95",
-        hasPermission !== true
-          ? "bg-surface-100 dark:bg-surface-800 text-surface-400 cursor-not-allowed"
-          : "bg-primary-600 text-white hover:bg-primary-700 shadow-lg shadow-primary-500/25"
+        "bg-primary-600 text-white hover:bg-primary-700 shadow-lg shadow-primary-500/25",
+        isRequesting && "opacity-50 cursor-not-allowed"
       )}
-      title="Record voice message (hold to record)"
+      title={
+        isRequesting
+          ? "Requesting permission..."
+          : !hasPermission
+          ? "Click to request microphone permission"
+          : "Record voice message"
+      }
     >
-      <Mic className="w-5 h-5" />
+      {isRequesting ? (
+        <Loader2 className="w-5 h-5 animate-spin" />
+      ) : (
+        <Mic className="w-5 h-5" />
+      )}
     </button>
   );
 }

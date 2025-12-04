@@ -10,14 +10,12 @@ import { getService } from "@/lib/di";
 import { MessageService } from "@/lib/services/message.service";
 import { MessageRepository } from "@/lib/repositories/message.repository";
 
-// Get services from DI container
-const messageService = getService<MessageService>('messageService');
-const messageRepo = getService<MessageRepository>('messageRepository');
+// Services are resolved asynchronously inside route handlers
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     messageId: string;
-  };
+  }>;
 }
 
 /**
@@ -34,7 +32,11 @@ export async function POST(
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    const { messageId } = params;
+    // Get services from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+    const messageRepo = await getService<MessageRepository>('messageRepository');
+
+    const { messageId } = await params;
     
     // Check if it's own message (don't mark as read)
     const message = await messageRepo.findById(messageId);
@@ -44,10 +46,11 @@ export async function POST(
 
     await messageService.markAsRead(messageId, session.user.id);
     return NextResponse.json({ message: "Message marked as read" });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Handle Prisma unique constraint errors gracefully
     // This can happen due to race conditions when multiple requests try to mark the same message as read
-    if (error?.code === 'P2002' || error?.meta?.target?.includes('messageId')) {
+    const prismaError = error as { code?: string; meta?: { target?: string[] } };
+    if (prismaError?.code === 'P2002' || prismaError?.meta?.target?.includes('messageId')) {
       // Message is already marked as read - this is not an error
       return NextResponse.json({ message: "Message already marked as read" }, { status: 200 });
     }
@@ -69,7 +72,10 @@ export async function GET(
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    const { messageId } = params;
+    // Get service from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+
+    const { messageId } = await params;
     const readReceipts = await messageService.getReadReceipts(messageId, session.user.id);
 
     return NextResponse.json({ readReceipts });

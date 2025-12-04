@@ -9,13 +9,10 @@ import { handleError, UnauthorizedError } from "@/lib/errors";
 import { getService } from "@/lib/di";
 import { MessageService } from "@/lib/services/message.service";
 
-// Get services from DI container
-const messageService = getService<MessageService>('messageService');
-
 interface RouteParams {
-  params: {
+  params: Promise<{
     messageId: string;
-  };
+  }>;
 }
 
 /**
@@ -32,7 +29,10 @@ export async function PATCH(
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    const { messageId } = params;
+    // Get service from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+
+    const { messageId } = await params;
     const { content } = await request.json();
 
     const updatedMessage = await messageService.editMessage(
@@ -70,7 +70,10 @@ export async function DELETE(
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    const { messageId } = params;
+    // Get service from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+
+    const { messageId } = await params;
     // Note: deleteForEveryone logic can be added to service if needed
     await messageService.deleteMessage(messageId, session.user.id);
 

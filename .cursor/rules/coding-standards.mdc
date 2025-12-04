@@ -1,0 +1,42 @@
+---
+description: Coding standards and best practices for React, TypeScript, and Next.js.
+globs: *.tsx, *.ts
+alwaysApply: false
+---
+
+# Coding Standards
+
+This file defines the coding standards and best practices for the ChatFlow project.
+
+## Simplicity
+
+- **No Over-engineering:** Avoid complex solutions when simple ones suffice. Do not add features or abstractions "just in case".
+
+## React & Next.js
+
+### React 19 Features
+- **Forms:** Use `useFormState` and `useFormStatus` for form handling instead of manual state management where possible.
+- **Server Actions:** Prefer Server Actions for data mutations.
+- **Hooks:** Ensure all custom hooks have correct dependency arrays.
+
+### Components
+- **Duplication:** Check for existing components before creating new ones.
+  - *Example:* Use `MessageTime` or `RelativeTime` (consolidate these if found separate).
+- **Props:** Use interfaces for component props, not inline types.
+
+## TypeScript
+
+### Type Safety
+- **No `any`:** The use of `any` is strictly prohibited. Use `unknown` if the type is truly not known, and narrow it down.
+- **Strict Mode:** The project runs in strict mode. Ensure all null/undefined checks are handled.
+
+## Date Handling
+
+- **Centralization:** Use the centralized date formatting utility in `lib/utils/date/` (or `lib/utils.ts` if not yet refactored).
+- **Consistency:** Do not implement custom date formatting logic in components.
+- **Serialization:** Be consistent with date serialization (ISO string vs Date object) across the API boundary.
+
+## Permissions
+
+- **Browser Permissions:** Use the centralized browser permissions service (to be implemented) for handling camera, microphone, and notification permissions.
+- **Validation:** Always check permissions before attempting to access device features.

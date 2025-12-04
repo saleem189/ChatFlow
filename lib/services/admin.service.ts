@@ -8,6 +8,7 @@ import { RoomRepository } from '../repositories/room.repository';
 import { MessageRepository } from '../repositories/message.repository';
 import { ForbiddenError, NotFoundError, ValidationError } from '../errors';
 import { Prisma } from '@prisma/client';
+import type { UserRole, UserStatus } from '@/lib/types/user.types';
 
 export class AdminService {
   private userRepository: UserRepository;
@@ -67,7 +68,7 @@ export class AdminService {
   /**
    * Update user (admin only)
    */
-  async updateUser(userId: string, data: { name?: string; email?: string; role?: string; status?: string }) {
+  async updateUser(userId: string, data: { name?: string; email?: string; role?: UserRole; status?: UserStatus }) {
     if (!userId) {
       throw new ValidationError('User ID is required');
     }

@@ -194,20 +194,69 @@ export class MessageRepository extends BaseRepository<
   }
 
   /**
-   * Search messages in a room using full-text search
+   * Search messages in a room using PostgreSQL full-text search with GIN index
+   * Uses trigram similarity for fast, fuzzy text matching
+   * Leverages idx_message_content_search GIN index for optimal performance
    */
   async search(roomId: string, query: string, limit: number = 20): Promise<MessageWithRelations[]> {
+    // Use raw SQL with trigram similarity for optimal performance
+    // This leverages the GIN index created in the migration
+    // Similarity threshold: 0.1 (adjustable - lower = more results, higher = more precise)
+    const similarityThreshold = 0.1;
+    
+    const results = await this.prisma.$queryRaw<Array<{
+      id: string;
+      content: string;
+      type: string;
+      fileUrl: string | null;
+      fileName: string | null;
+      fileSize: number | null;
+      fileType: string | null;
+      senderId: string;
+      roomId: string;
+      isEdited: boolean;
+      isDeleted: boolean;
+      replyToId: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }>>`
+      SELECT m.*
+      FROM messages m
+      WHERE m."roomId" = ${roomId}
+        AND m."isDeleted" = false
+        AND similarity(m.content, ${query}) > ${similarityThreshold}
+      ORDER BY similarity(m.content, ${query}) DESC, m."createdAt" DESC
+      LIMIT ${limit}
+    `;
+
+    // If no results with similarity, fall back to case-insensitive contains
+    // This ensures we still get results even if similarity doesn't match
+    if (results.length === 0) {
+      return this.prisma.message.findMany({
+        where: {
+          roomId,
+          isDeleted: false,
+          content: {
+            contains: query,
+            mode: 'insensitive',
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        include: {
+          ...MESSAGE_INCLUDE_FULL,
+          readReceipts: true,
+        },
+      }) as Promise<MessageWithRelations[]>;
+    }
+
+    // Fetch full relations for the matched messages
+    const messageIds = results.map(r => r.id);
     return this.prisma.message.findMany({
       where: {
-        roomId,
-        isDeleted: false,
-        content: {
-          contains: query,
-          mode: 'insensitive',
-        },
+        id: { in: messageIds },
       },
       orderBy: { createdAt: 'desc' },
-      take: limit,
       include: {
         ...MESSAGE_INCLUDE_FULL,
         readReceipts: true,

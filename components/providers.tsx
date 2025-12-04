@@ -24,6 +24,7 @@ interface ProvidersProps {
 export function Providers({ children }: ProvidersProps) {
   return (
     <SessionProvider>
+      {/* SessionProvider uses relative URLs by default, which prevents client-side NEXTAUTH_URL errors */}
       <ThemeProvider
         attribute="class"
         defaultTheme="system"

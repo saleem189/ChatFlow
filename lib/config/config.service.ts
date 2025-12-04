@@ -6,7 +6,7 @@
 
 import { Redis } from 'ioredis';
 import prisma from '@/lib/prisma';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
 
 interface CachedConfig {
   value: any;
@@ -30,7 +30,7 @@ export class ConfigService {
     'email.provider': 'EMAIL_PROVIDER',
   };
 
-  constructor(redis: Redis) {
+  constructor(redis: Redis, private logger: ILogger) {
     this.redis = redis;
     this.setupWatcher();
     this.startCacheCleanup();
@@ -64,7 +64,10 @@ export class ConfigService {
         return value as T;
       }
     } catch (error) {
-      logger.error(`Error reading config from Redis for key '${key}':`, error);
+      this.logger.error(`Error reading config from Redis for key '${key}':`, error, {
+        component: 'ConfigService',
+        key,
+      });
     }
 
     // Check database
@@ -77,7 +80,10 @@ export class ConfigService {
         try {
           await this.redis.set(`config:${key}`, JSON.stringify(value));
         } catch (error) {
-          logger.warn(`Failed to update Redis cache for key '${key}':`, error);
+          this.logger.warn(`Failed to update Redis cache for key '${key}':`, {
+            component: 'ConfigService',
+            key,
+          }, false);
         }
 
         this.cache.set(key, {
@@ -88,7 +94,10 @@ export class ConfigService {
         return value;
       }
     } catch (error) {
-      logger.error(`Error reading config from database for key '${key}':`, error);
+      this.logger.error(`Error reading config from database for key '${key}':`, error, {
+        component: 'ConfigService',
+        key,
+      });
     }
 
     // Check environment variables
@@ -97,7 +106,7 @@ export class ConfigService {
 
     if (envValue !== undefined) {
       const isSensitive = this.isSensitiveKey(key);
-      logger.log(`📌 Using environment variable '${envKey}' for config key '${key}'${isSensitive ? ' (value hidden)' : ''}`);
+      this.logger.log(`📌 Using environment variable '${envKey}' for config key '${key}'${isSensitive ? ' (value hidden)' : ''}`);
 
       // Try to parse as JSON for objects/arrays/booleans/numbers
       const parsedValue = this.parseEnvValue<T>(envValue);
@@ -142,9 +151,12 @@ export class ConfigService {
       // Publish change event
       await this.redis.publish(`config:${key}`, serialized);
 
-      logger.log(`✅ Config updated: ${key}`);
+      this.logger.log(`✅ Config updated: ${key}`);
     } catch (error) {
-      logger.error(`Error setting config for key '${key}':`, error);
+      this.logger.error(`Error setting config for key '${key}':`, error, {
+        component: 'ConfigService',
+        key,
+      });
       throw error;
     }
   }
@@ -158,9 +170,12 @@ export class ConfigService {
       await this.redis.del(`config:${key}`);
       this.cache.delete(key);
       await this.redis.publish(`config:${key}:deleted`, '1');
-      logger.log(`✅ Config deleted: ${key}`);
+      this.logger.log(`✅ Config deleted: ${key}`);
     } catch (error) {
-      logger.error(`Error deleting config for key '${key}':`, error);
+      this.logger.error(`Error deleting config for key '${key}':`, error, {
+        component: 'ConfigService',
+        key,
+      });
       throw error;
     }
   }
@@ -175,7 +190,9 @@ export class ConfigService {
       });
       return configs.map((c: { key: string }) => c.key);
     } catch (error) {
-      logger.error('Error getting all config keys:', error);
+      this.logger.error('Error getting all config keys:', error, {
+        component: 'ConfigService',
+      });
       return [];
     }
   }
@@ -209,7 +226,7 @@ export class ConfigService {
           // Config was deleted
           const actualKey = key.replace(':deleted', '');
           this.cache.delete(actualKey);
-          logger.log(`🔄 Config cache cleared: ${actualKey}`);
+          this.logger.log(`🔄 Config cache cleared: ${actualKey}`);
         } else {
           // Config was updated
           try {
@@ -218,16 +235,21 @@ export class ConfigService {
               value,
               expiresAt: Date.now() + this.defaultTTL * 1000,
             });
-            logger.log(`🔄 Config cache updated: ${key}`);
+            this.logger.log(`🔄 Config cache updated: ${key}`);
           } catch (error) {
-            logger.error(`Error parsing config update for '${key}':`, error);
+            this.logger.error(`Error parsing config update for '${key}':`, error, {
+              component: 'ConfigService',
+              key,
+            });
           }
         }
       });
 
-      logger.log('✅ Config service watcher initialized');
+      this.logger.log('✅ Config service watcher initialized');
     } catch (error) {
-      logger.error('Error setting up config watcher:', error);
+      this.logger.error('Error setting up config watcher:', error, {
+        component: 'ConfigService',
+      });
     }
   }
 
@@ -251,7 +273,7 @@ export class ConfigService {
     }
     
     if (cleaned > 0) {
-      logger.log(`🧹 Cleaned ${cleaned} cache entries (expired: ${cleaned}, evicted: ${cleaned})`);
+      this.logger.log(`🧹 Cleaned ${cleaned} cache entries (expired: ${cleaned}, evicted: ${cleaned})`);
     }
   }
 

@@ -8,7 +8,7 @@ import type { Metadata } from "next";
 import { Outfit, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
-import { ErrorBoundaryWrapper } from "@/components/error-boundary-wrapper";
+import { ErrorBoundaryWrapper } from "@/components/error-boundary";
 
 // Load custom fonts
 const outfit = Outfit({

@@ -28,9 +28,9 @@ export function OnlineUsers() {
     staleTime: 10 * 1000, // Consider data fresh for 10 seconds
   });
 
-  const users = usersData?.users || [];
+  const users = (usersData && typeof usersData === 'object' && 'users' in usersData ? (usersData as { users: OnlineUser[] }).users : []) || [];
 
-  const onlineUsers = users.filter((u) => onlineUserIdsArray.includes(u.id));
+  const onlineUsers = users.filter((u: OnlineUser) => onlineUserIdsArray.includes(u.id));
 
   if (loading) {
     return (
@@ -59,7 +59,7 @@ export function OnlineUsers() {
 
   return (
     <div className="space-y-3 max-h-64 overflow-y-auto">
-      {onlineUsers.map((user) => (
+      {onlineUsers.map((user: OnlineUser) => (
         <div
           key={user.id}
           className="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"

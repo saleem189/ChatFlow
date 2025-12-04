@@ -62,7 +62,7 @@ export async function validateRequest<T>(
         response: NextResponse.json(
           {
             error: "Validation failed",
-            details: result.error.errors.map((err) => ({
+            details: result.error.issues.map((err) => ({
               path: err.path.join("."),
               message: err.message,
             })),

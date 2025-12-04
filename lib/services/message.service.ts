@@ -12,7 +12,7 @@ import { CacheService } from '@/lib/cache/cache.service';
 import { MessageNotificationService } from '@/lib/services/message-notification.service';
 import { MessageReactionService } from '@/lib/services/message-reaction.service';
 import { MessageReadService } from '@/lib/services/message-read.service';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
 import { MESSAGE, VALIDATION } from '@/lib/constants';
 import { ERROR_MESSAGES } from '@/lib/errors/error-messages';
 import { sanitizeMessageContent } from '@/lib/utils/sanitize-server';
@@ -21,6 +21,7 @@ export class MessageService {
   constructor(
     private messageRepo: MessageRepository,
     private roomRepo: RoomRepository,
+    private logger: ILogger, // ✅ Injected via DI
     private cacheService?: CacheService, // Optional - for manual cache invalidation
     private notificationService?: MessageNotificationService, // Optional - for push notifications
     private reactionService?: MessageReactionService, // Optional - for reactions
@@ -42,7 +43,7 @@ export class MessageService {
       fileType?: string;
       type?: 'text' | 'image' | 'video' | 'file' | 'audio';
     }
-  ): Promise<{ sanitizedContent: string; validatedData: any }> {
+  ): Promise<{ sanitizedContent: string; validatedData: { content: string; roomId: string; replyToId?: string | null; fileUrl?: string; fileName?: string; fileSize?: number; fileType?: string; type?: 'text' | 'image' | 'video' | 'file' | 'audio' } }> {
     // 1. Validate input length before parsing (DoS protection)
     if (content && content.length > MESSAGE.MAX_CONTENT_LENGTH) {
       throw new ValidationError(`${ERROR_MESSAGES.MESSAGE_CONTENT_TOO_LONG} (${MESSAGE.MAX_CONTENT_LENGTH} characters)`);
@@ -69,7 +70,7 @@ export class MessageService {
     });
 
     if (!validationResult.success) {
-      throw new ValidationError(ERROR_MESSAGES.INVALID_MESSAGE_DATA, validationResult.error.errors);
+      throw new ValidationError(ERROR_MESSAGES.INVALID_MESSAGE_DATA, validationResult.error.issues);
     }
 
     return {
@@ -223,7 +224,11 @@ export class MessageService {
       this.notificationService
         .sendPushNotifications(roomId, userId, content || '', messageType, options?.fileName)
         .catch((error) => {
-          logger.error('Failed to send push notifications:', error);
+          this.logger.error('Failed to send push notifications:', error, {
+            component: 'MessageService',
+            roomId,
+            userId,
+          });
           // Track error for monitoring/metrics (fire-and-forget operation)
           // TODO: Add metrics service to track push notification failures
           // metricsService?.recordError('push_notification', error);

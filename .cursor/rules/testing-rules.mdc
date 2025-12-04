@@ -1,0 +1,27 @@
+---
+description: Testing strategy and rules for the project.
+globs: *.test.ts, *.test.tsx, *.spec.ts, *.spec.tsx
+alwaysApply: false
+---
+
+# Testing Rules
+
+This file defines the testing strategy and rules for the ChatFlow project.
+
+## Testing Strategy
+
+### Unit Tests
+- **Scope:** Components, hooks, and utility functions.
+- **Tools:** Jest, React Testing Library.
+- **Location:** `__tests__/unit/` or co-located with the file (e.g., `component.test.tsx`).
+
+### Integration Tests
+- **Scope:** API routes, services, and complex flows.
+- **Tools:** Jest, Supertest (for API).
+- **Location:** `__tests__/integration/`.
+
+## Best Practices
+
+- **Providers:** Use `renderWithProviders` helper for testing components that rely on context (Theme, Auth, Query).
+- **Mocking:** Mock external services and API calls. Do not make real network requests in tests.
+- **Coverage:** Aim for high test coverage on critical paths (Authentication, Payment, Data persistence).

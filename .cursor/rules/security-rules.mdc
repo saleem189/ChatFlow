@@ -1,0 +1,30 @@
+---
+description: Apply this rule when writing API routes, Server Actions, authentication logic, or handling user input.
+globs: *.ts, *.tsx, *.js
+alwaysApply: false
+---
+
+# Security Rules
+
+This file defines the security standards and best practices for the ChatFlow project.
+
+## Simplicity
+
+- **No Over-engineering:** Avoid complex solutions when simple ones suffice. Do not add features or abstractions "just in case".
+
+## Input Validation
+
+- **Zod Schemas:** All API routes and Server Actions must validate input using `zod` schemas.
+- **Strict Validation:** Do not trust client-side validation alone. Always validate on the server.
+- **Sanitization:** Sanitize all user-generated content (especially chat messages) to prevent XSS. Use `dompurify` where applicable.
+
+## Authentication & Authorization
+
+- **Protection:** Ensure all private routes and actions are protected by `NextAuth` session checks.
+- **Role-Based Access:** Verify user roles (e.g., `ADMIN`, `USER`) before allowing sensitive operations.
+- **Middleware:** Use middleware to protect entire route groups (e.g., `/admin/*`).
+
+## Data Protection
+
+- **Secrets:** Never expose environment variables starting with `NEXT_PUBLIC_` unless they are truly public.
+- **Logging:** Do not log sensitive information (passwords, tokens, PII) in console or server logs.

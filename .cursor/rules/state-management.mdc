@@ -1,0 +1,27 @@
+---
+description: Apply this rule when deciding where to store state (server vs client), using Zustand, or handling data persistence.
+globs: *.tsx, *.ts
+alwaysApply: false
+---
+
+# State Management Rules
+
+This file defines the rules for managing application state in the ChatFlow project.
+
+## Decision Tree
+
+- **Server State:** Use **React Query** for all data fetched from the API. Do not store API data in global client state (Zustand) unless absolutely necessary for offline support or complex cross-component interactions.
+- **Global Client State:** Use **Zustand** for UI state that needs to be accessed by multiple disparate components (e.g., sidebar open/close, current theme, active modal).
+- **Local State:** Use `useState` or `useReducer` for state that is isolated to a single component or a small tree of components (e.g., form input values, toggle states).
+- **URL State:** Use URL search params for state that should be shareable or persist on reload (e.g., search queries, active filters, pagination page).
+
+## Zustand Best Practices
+
+- **Atomic Stores:** Prefer smaller, focused stores over a single monolithic store.
+- **Actions:** Define actions within the store or as separate functions, but keep logic consistent.
+- **Selectors:** Use selectors to subscribe only to the specific state slices a component needs to prevent unnecessary re-renders.
+
+## Persistence
+
+- **LocalStorage:** Only persist non-sensitive user preferences (e.g., theme, sidebar preference) to `localStorage`.
+- **Hydration:** Handle hydration mismatches when using persisted state in Next.js.

@@ -11,11 +11,13 @@ import { UserService } from "@/lib/services/user.service";
 import { registerSchema } from "@/lib/validations";
 import { validateRequest } from "@/lib/middleware/validate-request";
 
-// Get services from DI container
-const userService = getService<UserService>('userService');
+// Services are resolved asynchronously inside route handlers
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
+    // Get service from DI container (async)
+    const userService = await getService<UserService>('userService');
+
     // Validate request body using middleware
     const validation = await validateRequest(request, registerSchema);
     if (!validation.success) {

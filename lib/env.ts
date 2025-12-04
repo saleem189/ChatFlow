@@ -17,6 +17,9 @@ export const env = createEnv({
     NEXTAUTH_URL: z.string().url().optional(),
     SOCKET_PORT: z.string().regex(/^\d+$/).optional(),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    // Logger configuration
+    LOGGER_TYPE: z.enum(["file", "sentry", "console"]).default("file"),
+    LOG_FILE_PATH: z.string().optional(),
   },
 
   /**
@@ -27,6 +30,8 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_SOCKET_URL: z.string().url().optional(),
     NEXT_PUBLIC_URL: z.string().url().optional(),
+    NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+    NEXT_PUBLIC_SENTRY_ENABLED: z.string().optional(),
   },
 
   /**
@@ -39,8 +44,12 @@ export const env = createEnv({
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     SOCKET_PORT: process.env.SOCKET_PORT,
     NODE_ENV: process.env.NODE_ENV,
+    LOGGER_TYPE: process.env.LOGGER_TYPE,
+    LOG_FILE_PATH: process.env.LOG_FILE_PATH,
     NEXT_PUBLIC_SOCKET_URL: process.env.NEXT_PUBLIC_SOCKET_URL,
     NEXT_PUBLIC_URL: process.env.NEXT_PUBLIC_URL,
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    NEXT_PUBLIC_SENTRY_ENABLED: process.env.NEXT_PUBLIC_SENTRY_ENABLED,
   },
   /**
    * Run `build` or `dev` with SKIP_ENV_VALIDATION to skip env validation.

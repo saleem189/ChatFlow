@@ -3,7 +3,7 @@
 // ================================
 // Seeds configs table from environment variables
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -53,12 +53,12 @@ export class ConfigSeeder {
       await prisma.config.upsert({
         where: { key: config.key },
         update: {
-          value: config.value,
+          value: (config.value ?? null) as Prisma.InputJsonValue,
           updatedAt: new Date(),
         },
         create: {
           key: config.key,
-          value: config.value,
+          value: (config.value ?? null) as Prisma.InputJsonValue,
         },
       });
 

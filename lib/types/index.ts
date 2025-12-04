@@ -18,13 +18,14 @@ export type {
 // Room types
 export type {
   ParticipantRole,
-  UserStatus,
   Participant,
   LastMessage,
   ChatRoom,
   CreateRoomRequest,
   RoomResponse,
 } from './room.types';
+
+// Note: UserStatus is exported from user.types.ts, not room.types.ts
 
 // User types
 export type {

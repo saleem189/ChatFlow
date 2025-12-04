@@ -10,7 +10,7 @@ import { useSocket } from "./use-socket";
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001";
 
-interface UseOnlineUsersOptions {
+export interface UseOnlineUsersOptions {
   /**
    * Whether to automatically connect the current user
    * @default true
@@ -24,7 +24,7 @@ interface UseOnlineUsersOptions {
   emitUserConnect?: boolean;
 }
 
-interface UseOnlineUsersReturn {
+export interface UseOnlineUsersReturn {
   /**
    * Set of online user IDs
    */

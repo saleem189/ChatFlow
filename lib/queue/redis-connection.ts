@@ -2,14 +2,18 @@
 // Redis Connection for BullMQ
 // ================================
 // Simple Redis connection configuration for BullMQ queues
+// SERVER-ONLY: Uses Node.js modules
+
+import 'server-only'; // Mark as server-only to prevent client bundling
 
 import Redis from 'ioredis';
 import { logger } from '@/lib/logger';
-import { config as envConfig } from 'dotenv';
-envConfig();
+import { env } from '@/lib/env';
 
 // Parse Redis URL or use defaults
 function getRedisConfig() {
+  // REDIS_URL is optional - check if it exists in process.env (not in env.ts schema)
+  // This allows flexibility for Redis connection strings
   const redisUrl = process.env.REDIS_URL;
 
   if (redisUrl) {
@@ -23,18 +27,14 @@ function getRedisConfig() {
         maxRetriesPerRequest: null, // Required for BullMQ
       };
     } catch (error) {
-      logger.error('Invalid REDIS_URL format, using defaults');
+      logger.error('Invalid REDIS_URL format, using defaults', error, {
+        component: 'RedisConnection',
+      });
     }
   }
 
-  console.log('🔍 ENV CHECK:', {
-    REDIS_URL: process.env.REDIS_URL,
-    REDIS_PASSWORD: process.env.REDIS_PASSWORD,
-    REDIS_HOST: process.env.REDIS_HOST,
-    REDIS_PORT: process.env.REDIS_PORT,
-  });
-
-  // Default configuration
+  // Default configuration - use process.env for Redis-specific vars not in env.ts
+  // These are infrastructure-specific and don't need type validation
   return {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379', 10),
@@ -83,12 +83,14 @@ redisConnection.on('reconnecting', () => {
   logger.log('🔄 Redis reconnecting...');
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  redisConnection.quit();
-});
+// Graceful shutdown (only in Node.js runtime, not Edge Runtime)
+if (typeof process !== 'undefined' && process.on) {
+  process.on('SIGTERM', () => {
+    redisConnection.quit();
+  });
 
-process.on('SIGINT', () => {
-  redisConnection.quit();
-});
+  process.on('SIGINT', () => {
+    redisConnection.quit();
+  });
+}
 

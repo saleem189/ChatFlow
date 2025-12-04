@@ -9,8 +9,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { getService } from "@/lib/di";
 import { QueueService } from "@/lib/queue/queue-service";
+import type { ILogger } from "@/lib/logger/logger.interface";
 
 export async function POST(request: NextRequest) {
+  // Get logger early so it's available in catch block
+  let logger: ILogger | null = null;
+  try {
+    logger = await getService<ILogger>('logger');
+  } catch {
+    // Logger not available, will use console in catch block
+  }
+
   try {
     const session = await getServerSession(authOptions);
 
@@ -22,16 +31,25 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      console.error("Upload error: No file in formData");
+      if (logger) {
+        logger.error('Upload error: No file in formData', new Error('No file provided'), {
+          component: 'UploadAPI',
+          userId: session.user.id,
+        });
+      }
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // Log file info for debugging
-    console.log("File upload received:", {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    });
+    if (logger) {
+      logger.log('File upload received', {
+        component: 'UploadAPI',
+        userId: session.user.id,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+      });
+    }
 
     // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
@@ -61,11 +79,14 @@ export async function POST(request: NextRequest) {
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      console.error("Upload error: File type not allowed", {
-        fileType: file.type,
-        fileName: file.name,
-        allowedTypes,
-      });
+      if (logger) {
+        logger.error('Upload error: File type not allowed', new Error('Invalid file type'), {
+          component: 'UploadAPI',
+          userId: session.user.id,
+          fileType: file.type,
+          fileName: file.name,
+        });
+      }
       return NextResponse.json(
         { error: `File type not allowed. Received: ${file.type || "unknown"}` },
         { status: 400 }
@@ -96,8 +117,8 @@ export async function POST(request: NextRequest) {
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
 
-    // Get queue service
-    const queueService = getService<QueueService>("queueService");
+    // Get queue service (async)
+    const queueService = await getService<QueueService>("queueService");
 
     let fileUrl = `/uploads/${fileName}`;
     let processingJobId: string | null = null;
@@ -145,7 +166,13 @@ export async function POST(request: NextRequest) {
         : undefined,
     });
   } catch (error) {
-    console.error("Error uploading file:", error);
+    if (logger) {
+      logger.error('Error uploading file', error, {
+        component: 'UploadAPI',
+      });
+    } else {
+      console.error('[UploadAPI] Error uploading file:', error);
+    }
     const errorMessage = error instanceof Error ? error.message : "Failed to upload file";
     return NextResponse.json(
       { error: errorMessage, details: error instanceof Error ? error.stack : String(error) },

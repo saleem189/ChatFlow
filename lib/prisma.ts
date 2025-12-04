@@ -6,6 +6,7 @@
 
 import { PrismaClient, Prisma } from "@prisma/client";
 import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 
 // Declare a global variable to hold the Prisma Client instance
 const globalForPrisma = globalThis as unknown as {
@@ -17,7 +18,7 @@ const globalForPrisma = globalThis as unknown as {
 // Recommended: Add to DATABASE_URL for better control
 // DATABASE_URL="postgresql://user:pass@host:5432/db?connection_limit=20&pool_timeout=10&connect_timeout=10&statement_timeout=5000"
 const getDatabaseUrl = (): string => {
-  const baseUrl = process.env.DATABASE_URL || "";
+  const baseUrl = env.DATABASE_URL;
   
   // If URL already has query params, append to them
   if (baseUrl.includes("?")) {
@@ -40,14 +41,15 @@ const getDatabaseUrl = (): string => {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: [
-      { emit: 'event', level: 'query' }, // Enable query event logging
-      { emit: 'stdout', level: 'error' },
-      ...(process.env.NODE_ENV === "development" 
-        ? [{ emit: 'stdout', level: 'warn' } as const]
-        : []
-      ),
-    ],
+    log: env.NODE_ENV === "development"
+      ? [
+          { emit: 'event', level: 'query' }, // Enable query event logging
+          { emit: 'stdout', level: 'error' },
+          { emit: 'stdout', level: 'warn' },
+        ]
+      : [
+          { emit: 'stdout', level: 'error' },
+        ],
     datasources: {
       db: {
         url: getDatabaseUrl(),
@@ -56,26 +58,29 @@ export const prisma =
   });
 
 // Slow query logging - log queries that take longer than 1 second
-prisma.$on('query', (e: Prisma.QueryEvent) => {
-  const slowQueryThreshold = 1000; // 1 second in milliseconds
-  
-  if (e.duration > slowQueryThreshold) {
-    logger.warn('🐌 Slow query detected', {
-      query: e.query,
-      duration: `${e.duration}ms`,
-      params: e.params,
-      target: e.target,
-    });
-  }
-  
-  // In development, log all queries
-  if (process.env.NODE_ENV === "development" && e.duration > 100) {
-    logger.log(`[Query] ${e.duration}ms - ${e.query.substring(0, 100)}...`);
-  }
-});
+// Only register query listener if query logging is enabled
+if (env.NODE_ENV === "development") {
+  prisma.$on('query' as never, (e: Prisma.QueryEvent) => {
+    const slowQueryThreshold = 1000; // 1 second in milliseconds
+    
+    if (e.duration > slowQueryThreshold) {
+      logger.warn('🐌 Slow query detected', {
+        query: e.query,
+        duration: `${e.duration}ms`,
+        params: e.params,
+        target: e.target,
+      });
+    }
+    
+    // In development, log all queries
+    if (e.duration > 100) {
+      logger.log(`[Query] ${e.duration}ms - ${e.query.substring(0, 100)}...`);
+    }
+  });
+}
 
 // Store the instance in the global object during development
-if (process.env.NODE_ENV !== "production") {
+if (env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 

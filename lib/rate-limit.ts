@@ -149,7 +149,7 @@ export function getClientIdentifier(request: NextRequest, userId?: string): stri
   const ip = forwarded 
     ? forwarded.split(',')[0].trim()
     : request.headers.get('x-real-ip') 
-    || request.ip 
+    || request.headers.get('x-forwarded-for')?.split(',')[0].trim()
     || 'unknown';
   
   return `ip:${ip}`;

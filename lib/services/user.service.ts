@@ -2,16 +2,23 @@
 // User Service
 // ================================
 // Business logic layer for users
+// SERVER-ONLY: Uses bcryptjs (Node.js only)
+
+import 'server-only';
 
 import { UserRepository } from '@/lib/repositories/user.repository';
 import { ValidationError, NotFoundError, ForbiddenError } from '@/lib/errors';
-import bcrypt from 'bcryptjs';
+// Dynamic import to prevent webpack from bundling bcryptjs for client
 import { getService } from '@/lib/di';
 import { EventBus } from '@/lib/events/event-bus';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
+import type { UserStatus } from '@/lib/types/user.types';
 
 export class UserService {
-  constructor(private userRepo: UserRepository) {}
+  constructor(
+    private userRepo: UserRepository,
+    private logger: ILogger // ✅ Injected via DI
+  ) {}
 
   /**
    * Register a new user
@@ -32,7 +39,9 @@ export class UserService {
       throw new ValidationError('A user with this email already exists');
     }
 
-    // Hash password
+    // Hash password - use require with dynamic path to prevent webpack static analysis
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create user
@@ -40,13 +49,13 @@ export class UserService {
       name,
       email,
       password: hashedPassword,
-      status: 'offline',
+      status: 'OFFLINE',
     });
 
     // Publish user registered event (non-blocking)
     // Email service will handle sending welcome email
     try {
-      const eventBus = getService<EventBus>('eventBus');
+      const eventBus = await getService<EventBus>('eventBus');
       await eventBus.publish('user.registered', {
         userId: user.id,
         email: user.email,
@@ -55,7 +64,10 @@ export class UserService {
       });
     } catch (error) {
       // Don't fail registration if event publishing fails
-      logger.error('Failed to publish user.registered event:', error);
+      this.logger.error('Failed to publish user.registered event:', error, {
+        component: 'UserService',
+        userId: user.id,
+      });
     }
 
     return {
@@ -148,7 +160,7 @@ export class UserService {
   /**
    * Update user status
    */
-  async updateStatus(userId: string, status: string): Promise<void> {
+  async updateStatus(userId: string, status: UserStatus): Promise<void> {
     await this.userRepo.updateStatus(userId, status);
   }
 }

@@ -6,28 +6,29 @@
 
 import { Redis } from 'ioredis';
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
+import type { EventName, EventData, EventDataMap } from './event-types';
 
-export interface EventPayload {
-  event: string;
-  data: any;
+export interface EventPayload<T extends EventName = EventName> {
+  event: T;
+  data: EventData<T>;
   id: string;
   timestamp: number;
   source?: string;
 }
 
-type EventHandler = (data: any) => void | Promise<void>;
-type PatternEventHandler = (event: string, data: any) => void | Promise<void>;
+type EventHandler<T extends EventName = EventName> = (data: EventData<T>) => void | Promise<void>;
+type PatternEventHandler = (event: string, data: unknown) => void | Promise<void>;
 
 export class EventBus {
   private redis: Redis;
-  private subscribers = new Map<string, Set<EventHandler>>();
+  private subscribers = new Map<EventName, Set<EventHandler<EventName>>>();
   private patternSubscribers = new Map<string, Set<PatternEventHandler>>();
   private subscriber: Redis | null = null;
   private patternSubscriber: Redis | null = null;
   private cleanupInterval: NodeJS.Timeout | null = null;
 
-  constructor(redis: Redis) {
+  constructor(redis: Redis, private logger: ILogger) {
     this.redis = redis;
     // Start automatic cleanup of empty subscriptions every 5 minutes
     this.cleanupInterval = setInterval(() => {
@@ -36,10 +37,14 @@ export class EventBus {
   }
 
   /**
-   * Publish an event
+   * Publish an event (type-safe)
    */
-  async publish(event: string, data: any, source?: string): Promise<void> {
-    const payload: EventPayload = {
+  async publish<T extends EventName>(
+    event: T,
+    data: EventData<T>,
+    source?: string
+  ): Promise<void> {
+    const payload: EventPayload<T> = {
       event,
       data,
       id: uuidv4(),
@@ -59,17 +64,23 @@ export class EventBus {
       await this.redis.lpush('events:log:all', JSON.stringify(payload));
       await this.redis.ltrim('events:log:all', 0, 9999); // Keep last 10000
 
-      logger.log(`📤 Event published: ${event} (${payload.id})`);
+      this.logger.log(`📤 Event published: ${event} (${payload.id})`);
     } catch (error) {
-      logger.error(`Error publishing event '${event}':`, error);
+      this.logger.error(`Error publishing event '${event}':`, error, {
+        component: 'EventBus',
+        event,
+      });
       throw error;
     }
   }
 
   /**
-   * Subscribe to a specific event
+   * Subscribe to a specific event (type-safe)
    */
-  async subscribe(event: string, handler: EventHandler): Promise<() => void> {
+  async subscribe<T extends EventName>(
+    event: T,
+    handler: EventHandler<T>
+  ): Promise<() => void> {
     if (!this.subscribers.has(event)) {
       this.subscribers.set(event, new Set());
 
@@ -81,23 +92,32 @@ export class EventBus {
         this.subscriber.on('message', (channel, message) => {
           try {
             const payload: EventPayload = JSON.parse(message);
-            const handlers = this.subscribers.get(event);
+            const handlers = this.subscribers.get(event as EventName);
             if (handlers) {
               handlers.forEach(h => {
                 try {
-                  const result = h(payload.data);
+                  const result = h(payload.data as EventData<typeof event>);
                   if (result instanceof Promise) {
                     result.catch(err => {
-                      logger.error(`Error in event handler for '${event}':`, err);
+                      this.logger.error(`Error in event handler for '${event}':`, err, {
+                        component: 'EventBus',
+                        event,
+                      });
                     });
                   }
                 } catch (error) {
-                  logger.error(`Error in event handler for '${event}':`, error);
+                  this.logger.error(`Error in event handler for '${event}':`, error, {
+                    component: 'EventBus',
+                    event,
+                  });
                 }
               });
             }
           } catch (error) {
-            logger.error(`Error parsing event message for '${event}':`, error);
+            this.logger.error(`Error parsing event message for '${event}':`, error, {
+              component: 'EventBus',
+              event,
+            });
           }
         });
       } else {
@@ -106,21 +126,32 @@ export class EventBus {
       }
     }
 
-    this.subscribers.get(event)!.add(handler);
-    logger.log(`📥 Subscribed to event: ${event}`);
+    const handlers = this.subscribers.get(event);
+    if (!handlers) {
+      throw new Error(`No handler set for event: ${event}`);
+    }
+    handlers.add(handler as EventHandler<EventName>);
+    this.logger.log(`📥 Subscribed to event: ${event}`);
 
     // Return unsubscribe function with error handling
     return () => {
       try {
-        this.subscribers.get(event)?.delete(handler);
+        const handlers = this.subscribers.get(event);
+        handlers?.delete(handler as EventHandler<EventName>);
         if (this.subscribers.get(event)?.size === 0) {
           this.subscribers.delete(event);
           this.subscriber?.unsubscribe(`events:${event}`).catch((err) => {
-            logger.error(`Error unsubscribing from '${event}':`, err);
+            this.logger.error(`Error unsubscribing from '${event}':`, err, {
+              component: 'EventBus',
+              event,
+            });
           });
         }
       } catch (error) {
-        logger.error(`Error in unsubscribe function for '${event}':`, error);
+        this.logger.error(`Error in unsubscribe function for '${event}':`, error, {
+          component: 'EventBus',
+          event,
+        });
       }
     };
   }
@@ -148,19 +179,28 @@ export class EventBus {
             if (handlers) {
               handlers.forEach(h => {
                 try {
-                  const result = h(event, payload.data);
+                  const result = h(event, payload.data as unknown);
                   if (result instanceof Promise) {
                     result.catch(err => {
-                      logger.error(`Error in pattern handler for '${pattern}':`, err);
+                      this.logger.error(`Error in pattern handler for '${pattern}':`, err, {
+                        component: 'EventBus',
+                        pattern,
+                      });
                     });
                   }
                 } catch (error) {
-                  logger.error(`Error in pattern handler for '${pattern}':`, error);
+                  this.logger.error(`Error in pattern handler for '${pattern}':`, error, {
+                    component: 'EventBus',
+                    pattern,
+                  });
                 }
               });
             }
           } catch (error) {
-            logger.error(`Error parsing pattern event message:`, error);
+            this.logger.error(`Error parsing pattern event message:`, error, {
+              component: 'EventBus',
+              pattern,
+            });
           }
         });
       } else {
@@ -169,7 +209,7 @@ export class EventBus {
     }
 
     this.patternSubscribers.get(pattern)!.add(handler);
-    logger.log(`📥 Subscribed to event pattern: ${pattern}`);
+    this.logger.log(`📥 Subscribed to event pattern: ${pattern}`);
 
     return () => {
       try {
@@ -177,11 +217,17 @@ export class EventBus {
         if (this.patternSubscribers.get(pattern)?.size === 0) {
           this.patternSubscribers.delete(pattern);
           this.patternSubscriber?.punsubscribe(`events:${pattern}`).catch((err) => {
-            logger.error(`Error unsubscribing from pattern '${pattern}':`, err);
+            this.logger.error(`Error unsubscribing from pattern '${pattern}':`, err, {
+              component: 'EventBus',
+              pattern,
+            });
           });
         }
       } catch (error) {
-        logger.error(`Error in pattern unsubscribe function for '${pattern}':`, error);
+        this.logger.error(`Error in pattern unsubscribe function for '${pattern}':`, error, {
+          component: 'EventBus',
+          pattern,
+        });
       }
     };
   }
@@ -189,12 +235,18 @@ export class EventBus {
   /**
    * Get event history for a specific event
    */
-  async getEventHistory(event: string, limit: number = 100): Promise<EventPayload[]> {
+  async getEventHistory<T extends EventName>(
+    event: T,
+    limit: number = 100
+  ): Promise<EventPayload<T>[]> {
     try {
       const events = await this.redis.lrange(`events:log:${event}`, 0, limit - 1);
       return events.map(e => JSON.parse(e));
     } catch (error) {
-      logger.error(`Error getting event history for '${event}':`, error);
+      this.logger.error(`Error getting event history for '${event}':`, error, {
+        component: 'EventBus',
+        event,
+      });
       return [];
     }
   }
@@ -202,12 +254,14 @@ export class EventBus {
   /**
    * Get recent events from all events
    */
-  async getRecentEvents(limit: number = 100): Promise<EventPayload[]> {
+  async getRecentEvents(limit: number = 100): Promise<EventPayload<EventName>[]> {
     try {
       const events = await this.redis.lrange('events:log:all', 0, limit - 1);
       return events.map(e => JSON.parse(e));
     } catch (error) {
-      logger.error('Error getting recent events:', error);
+      this.logger.error('Error getting recent events:', error, {
+        component: 'EventBus',
+      });
       return [];
     }
   }
@@ -223,7 +277,10 @@ export class EventBus {
       if (handlers.size === 0) {
         this.subscribers.delete(event);
         this.subscriber?.unsubscribe(`events:${event}`).catch((err) => {
-          logger.error(`Error unsubscribing during cleanup for '${event}':`, err);
+          this.logger.error(`Error unsubscribing during cleanup for '${event}':`, err, {
+            component: 'EventBus',
+            event,
+          });
         });
         cleaned++;
       }
@@ -234,14 +291,17 @@ export class EventBus {
       if (handlers.size === 0) {
         this.patternSubscribers.delete(pattern);
         this.patternSubscriber?.punsubscribe(`events:${pattern}`).catch((err) => {
-          logger.error(`Error unsubscribing pattern during cleanup for '${pattern}':`, err);
+          this.logger.error(`Error unsubscribing pattern during cleanup for '${pattern}':`, err, {
+            component: 'EventBus',
+            pattern,
+          });
         });
         cleaned++;
       }
     }
     
     if (cleaned > 0) {
-      logger.log(`🧹 Cleaned ${cleaned} empty subscription sets`);
+      this.logger.log(`🧹 Cleaned ${cleaned} empty subscription sets`);
     }
   }
 
@@ -270,7 +330,9 @@ export class EventBus {
       this.subscribers.clear();
       this.patternSubscribers.clear();
     } catch (error) {
-      logger.error('Error destroying EventBus:', error);
+      this.logger.error('Error destroying EventBus:', error, {
+        component: 'EventBus',
+      });
     }
   }
 }

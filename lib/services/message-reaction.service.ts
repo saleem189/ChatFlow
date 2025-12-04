@@ -21,7 +21,7 @@ export class MessageReactionService {
     messageId: string,
     userId: string,
     emoji: string
-  ): Promise<{ action: 'added' | 'removed'; reaction: any }> {
+  ): Promise<{ action: 'added' | 'removed'; reaction: { id: string; messageId: string; userId: string; emoji: string; createdAt: Date } | null }> {
     const message = await this.messageRepo.findById(messageId);
     if (!message) {
       throw new NotFoundError(ERROR_MESSAGES.MESSAGE_NOT_FOUND);

@@ -14,9 +14,7 @@ import { MessageRepository } from "@/lib/repositories/message.repository";
 import { validateRequest } from "@/lib/middleware/validate-request";
 import { z } from "zod";
 
-// Get services from DI container
-const messageService = getService<MessageService>('messageService');
-const messageRepo = getService<MessageRepository>('messageRepository');
+// Services are resolved asynchronously inside route handlers
 
 // Validation schema for batch read request
 const batchReadSchema = z.object({
@@ -39,7 +37,7 @@ const batchReadSchema = z.object({
  *   "skipped": 0
  * }
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. Authentication
     const session = await getServerSession(authOptions);
@@ -47,7 +45,11 @@ export async function POST(request: NextRequest) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    // 2. Validate request body using middleware
+    // 2. Get services from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+    const messageRepo = await getService<MessageRepository>('messageRepository');
+
+    // 3. Validate request body using middleware
     const validation = await validateRequest(request, batchReadSchema);
     if (!validation.success) {
       return validation.response;
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
     const { messageIds } = validation.data;
     const userId = session.user.id;
 
-    // 3. Filter out own messages (users can't mark their own messages as read)
+    // 4. Filter out own messages (users can't mark their own messages as read)
     // Check all messages in parallel to determine which ones to skip
     const messageChecks = await Promise.allSettled(
       messageIds.map(messageId => messageRepo.findById(messageId))
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 4. Mark all valid messages as read in a single transaction
+    // 5. Mark all valid messages as read in a single transaction
     // This prevents race conditions and ensures atomicity
     let marked = 0;
     try {
@@ -101,13 +103,13 @@ export async function POST(request: NextRequest) {
 
       // Count successful operations
       marked = results.filter(r => r.status === 'fulfilled').length;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If all fail, return error
       // If some succeed, we still return success with counts
       return handleError(error);
     }
 
-    // 5. Return success response
+    // 6. Return success response
     return NextResponse.json({
       success: true,
       marked,

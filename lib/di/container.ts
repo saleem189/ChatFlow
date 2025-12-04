@@ -6,10 +6,10 @@
 // Enables runtime service selection via configuration
 
 import { ConfigService } from '@/lib/config/config.service';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
 
 type Factory<T> = () => T | Promise<T>;
-type AsyncFactory<T> = (config?: any) => Promise<T>;
+type AsyncFactory<T> = (config?: Record<string, unknown>) => Promise<T>;
 
 class DIContainer {
   private services = new Map<string, Factory<any>>();
@@ -31,21 +31,36 @@ class DIContainer {
    * @param singleton - Whether to cache the instance (default: true)
    */
   register<T>(key: string, factory: Factory<T>, singleton: boolean = true): void {
+    const factoryResult = factory();
+    
+    // If factory returns a Promise, treat it as async and use factories map
+    if (factoryResult instanceof Promise) {
+      if (singleton) {
+        this.factories.set(key, async () => {
+          if (!this.singletons.has(key)) {
+            const instance = await factoryResult;
+            this.singletons.set(key, instance);
+          }
+          return this.singletons.get(key);
+        });
+      } else {
+        this.factories.set(key, async () => await factoryResult);
+      }
+      return;
+    }
+    
+    // Synchronous factory
     if (singleton) {
       // Store factory and create on first access
       this.services.set(key, () => {
         if (!this.singletons.has(key)) {
-          const instance = factory();
-          if (instance instanceof Promise) {
-            throw new Error(`Service '${key}' factory returned a Promise. Use registerFactory for async factories.`);
-          }
-          this.singletons.set(key, instance);
+          this.singletons.set(key, factoryResult);
         }
         return this.singletons.get(key);
       });
     } else {
       // Always create new instance
-      this.services.set(key, factory);
+      this.services.set(key, () => factoryResult);
     }
   }
 
@@ -67,12 +82,16 @@ class DIContainer {
       }
 
       // Get config if needed
-      let config: any = undefined;
+      let config: Record<string, unknown> | undefined = undefined;
       if (configKey && this.configService) {
         try {
-          config = await this.configService.get(configKey, undefined);
+          const configValue = await this.configService.get(configKey, undefined);
+          config = typeof configValue === 'object' && configValue !== null 
+            ? configValue as Record<string, unknown>
+            : undefined;
         } catch (error) {
-          logger.warn(`Config key '${configKey}' not found for service '${key}', using defaults`);
+          // Config key not found - use defaults (logger not available at this point)
+          console.warn(`[DI Container] Config key '${configKey}' not found for service '${key}', using defaults`);
         }
       }
 
@@ -144,7 +163,8 @@ class DIContainer {
    */
   clearSingleton(key: string): void {
     this.singletons.delete(key);
-    logger.log(`🔄 Singleton cache cleared for service: ${key}`);
+    // Logger not available at this point - use console
+    console.log(`[DI Container] Singleton cache cleared for service: ${key}`);
   }
 
   /**
@@ -154,7 +174,8 @@ class DIContainer {
     this.services.clear();
     this.factories.clear();
     this.singletons.clear();
-    logger.log('🔄 All singleton caches cleared');
+    // Logger not available at this point - use console
+    console.log('[DI Container] All singleton caches cleared');
   }
 
   /**
@@ -165,6 +186,50 @@ class DIContainer {
     const factoryKeys = Array.from(this.factories.keys());
     const allKeys = [...serviceKeys, ...factoryKeys];
     return Array.from(new Set(allKeys));
+  }
+
+  /**
+   * Destroy all services that have cleanup methods
+   * Calls destroy() on all services that implement it
+   * Used for graceful shutdown and resource cleanup
+   */
+  async destroy(): Promise<void> {
+    const destroyPromises: Promise<void>[] = [];
+    let logger: ILogger | null = null;
+
+    // Try to get logger for error reporting, but don't fail if unavailable
+    try {
+      if (this.singletons.has('logger')) {
+        logger = this.singletons.get('logger') as ILogger;
+      }
+    } catch {
+      // Logger not available, will use console
+    }
+
+    // Call destroy() on all services that have it
+    for (const [key, instance] of this.singletons.entries()) {
+      if (instance && typeof (instance as any).destroy === 'function') {
+        destroyPromises.push(
+          Promise.resolve((instance as any).destroy()).catch((err) => {
+            // Use logger if available, otherwise console
+            if (logger) {
+              logger.error(`Error destroying service '${key}':`, err, {
+                component: 'DIContainer',
+                service: key,
+              });
+            } else {
+              console.error(`[DI Container] Error destroying service '${key}':`, err);
+            }
+          })
+        );
+      }
+    }
+
+    // Wait for all destroy operations to complete (or fail gracefully)
+    await Promise.allSettled(destroyPromises);
+
+    // Clear all caches after cleanup
+    this.clear();
   }
 }
 

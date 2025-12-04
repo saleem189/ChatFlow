@@ -16,9 +16,9 @@ import { messageRateLimiter, rateLimitMiddleware } from "@/lib/rate-limit";
 import { CACHE_HEADERS } from "@/lib/utils/cache-headers";
 import { validateRequest } from "@/lib/middleware/validate-request";
 import { messageSchema } from "@/lib/validations";
+import type { ILogger } from "@/lib/logger/logger.interface";
 
-// Get services from DI container
-const messageService = getService<MessageService>('messageService');
+// Services are resolved asynchronously inside route handlers
 
 // Route segment config for caching
 export const dynamic = 'force-dynamic'; // Messages are always dynamic
@@ -28,7 +28,7 @@ export const revalidate = 10; // Revalidate every 10 seconds
  * GET /api/messages
  * Get messages for a specific chat room
  */
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. Authentication
     const session = await getServerSession(authOptions);
@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    // 2. Parse query parameters
+    // 2. Get services from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+
+    // 3. Parse query parameters
     const { searchParams } = new URL(request.url);
     const roomId = searchParams.get("roomId");
     const cursor = searchParams.get("cursor");
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
       return handleError(new ValidationError('Room ID is required'));
     }
 
-    // 3. Delegate to service
+    // 4. Delegate to service
     const result = await messageService.getMessages(session.user.id, roomId, {
       limit,
       cursor: cursor || undefined,
@@ -66,7 +69,7 @@ export async function GET(request: NextRequest) {
  * POST /api/messages
  * Save a new message to the database
  */
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. Authentication
     const session = await getServerSession(authOptions);
@@ -74,24 +77,28 @@ export async function POST(request: NextRequest) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    // 2. Rate limiting
+    // 2. Get services from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
+    const logger = await getService<ILogger>('logger');
+
+    // 3. Rate limiting
     const rateLimit = await rateLimitMiddleware(request, messageRateLimiter, session.user.id);
     if (!rateLimit.allowed) {
       return rateLimit.response as NextResponse;
     }
 
-    // 3. Validate request body using middleware
+    // 4. Validate request body using middleware
     const validation = await validateRequest(request, messageSchema);
     if (!validation.success) {
       return validation.response;
     }
     const validatedData = validation.data;
 
-    // 4. Log API receive
+    // 5. Log API receive
     const tempMessageId = `temp_${Date.now()}`;
     logApiReceive(tempMessageId, validatedData.roomId, session.user.id, validatedData.content || '');
 
-    // 5. Delegate to service (service layer will do additional validation and sanitization)
+    // 6. Delegate to service (service layer will do additional validation and sanitization)
     const message = await messageService.sendMessage(
       session.user.id,
       validatedData.roomId,
@@ -156,7 +163,12 @@ export async function POST(request: NextRequest) {
         logError('API_BROADCAST', transformedMessage.id, validatedData.roomId, error, {
           senderId: transformedMessage.senderId,
         });
-        console.error("Failed to broadcast message:", error);
+        logger.error('Failed to broadcast message', error, {
+          component: 'MessagesAPI',
+          messageId: transformedMessage.id,
+          roomId: validatedData.roomId,
+          senderId: transformedMessage.senderId,
+        });
       });
 
     // 8. Return response with rate limit headers

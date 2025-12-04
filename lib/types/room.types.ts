@@ -9,9 +9,10 @@
 export type ParticipantRole = 'admin' | 'member';
 
 /**
- * User status
+ * Import UserStatus from user.types to avoid duplication
+ * Note: UserStatus is 'ONLINE' | 'OFFLINE' | 'AWAY' (uppercase, matches Prisma enum)
  */
-export type UserStatus = 'online' | 'offline' | 'away' | 'busy';
+import type { UserStatus } from './user.types';
 
 /**
  * Room participant structure

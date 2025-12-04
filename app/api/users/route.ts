@@ -11,23 +11,25 @@ import { getService } from "@/lib/di";
 import { UserService } from "@/lib/services/user.service";
 import { CACHE_HEADERS } from "@/lib/utils/cache-headers";
 
-// Get services from DI container
-const userService = getService<UserService>('userService');
+// Services are resolved asynchronously inside route handlers
 
 // Route segment config for caching
-export const dynamic = 'auto'; // Can be cached
-export const revalidate = 300; // Revalidate every 5 minutes
+export const dynamic = 'force-dynamic'; // Must be dynamic (uses headers for auth)
+export const revalidate = 0; // No caching for dynamic routes
 
 /**
  * GET /api/users
  * Get all users for adding to chat rooms
  */
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
+
+    // Get service from DI container (async)
+    const userService = await getService<UserService>('userService');
 
     // Get all users except current user
     const allUsers = await userService.getAllUsers();

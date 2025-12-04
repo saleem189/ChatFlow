@@ -8,7 +8,7 @@
 // Note: This is a client component, so ISR/SSG doesn't apply
 // But we can add metadata for SEO
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -19,11 +19,49 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { logger } from "@/lib/logger";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/chat";
+  
+  // Safely get callbackUrl and validate it
+  let callbackUrl = "/chat";
+  try {
+    const rawCallbackUrl = searchParams.get("callbackUrl");
+    if (rawCallbackUrl && typeof rawCallbackUrl === 'string') {
+      const trimmed = rawCallbackUrl.trim();
+      
+      // Only accept relative paths starting with / (security: prevent open redirect)
+      if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+        // Basic validation: ensure it's a safe path
+        if (/^\/[a-zA-Z0-9\/\-_?=&.:]*$/.test(trimmed)) {
+          callbackUrl = trimmed;
+        }
+      }
+      // If it's a full URL, extract just the pathname
+      else if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        try {
+          // Only parse if it's a valid URL format
+          if (trimmed.includes('://') && trimmed.length > 7) {
+            const url = new URL(trimmed);
+            const pathname = url.pathname || "/chat";
+            // Only use if it's a valid relative path
+            if (pathname.startsWith('/')) {
+              callbackUrl = pathname;
+            }
+          }
+        } catch (urlError) {
+          // If URL construction fails, use default
+          logger.error("Invalid callbackUrl format", { error: urlError });
+          callbackUrl = "/chat";
+        }
+      }
+    }
+  } catch (error) {
+    logger.error("Error parsing callbackUrl", { error });
+    callbackUrl = "/chat";
+  }
 
   // Form state
   const [email, setEmail] = useState("");
@@ -38,31 +76,150 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      // Use signIn with relative callbackUrl to avoid client-side URL construction errors
+      // NextAuth client-side can't access NEXTAUTH_URL (server-only env var)
+      // By using redirect: false and handling redirects manually, we avoid URL construction
       const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
+        // Don't pass callbackUrl - NextAuth client tries to construct absolute URLs
+        // which requires NEXTAUTH_URL (not available in browser)
+        // We'll handle redirects manually after successful login
       });
 
       if (result?.error) {
-        setError(result.error);
+        // Map NextAuth error messages to user-friendly messages
+        let errorMessage = result.error;
+        if (result.error === "CredentialsSignin") {
+          errorMessage = "Invalid email or password. Please try again.";
+        } else if (result.error.includes("Email and password are required")) {
+          errorMessage = "Please enter both email and password.";
+        } else if (result.error.includes("No user found")) {
+          errorMessage = "No account found with this email address.";
+        } else if (result.error.includes("Invalid password")) {
+          errorMessage = "Invalid password. Please try again.";
+        }
+        setError(errorMessage);
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if login was successful
+      if (!result?.ok) {
+        setError("Login failed. Please try again.");
         setIsLoading(false);
         return;
       }
 
       // Successful login - fetch session to check role
-      const sessionRes = await fetch("/api/auth/session");
-      const session = await sessionRes.json();
-      
-      // Redirect based on role
-      if (session?.user?.role === "ADMIN") {
-        router.push("/admin");
-      } else {
+      try {
+        const sessionRes = await fetch("/api/auth/session");
+        if (!sessionRes.ok) {
+          throw new Error("Failed to fetch session");
+        }
+        const session = await sessionRes.json();
+        
+        // Redirect based on role
+        if (session?.user?.role === "ADMIN") {
+          router.push("/admin");
+        } else {
+          router.push(callbackUrl || "/chat");
+        }
+        router.refresh();
+      } catch (sessionError) {
+        logger.error("Session fetch error", { error: sessionError });
+        // Even if session fetch fails, try to redirect (session might still be set)
         router.push(callbackUrl || "/chat");
+        router.refresh();
       }
-      router.refresh();
-    } catch {
-      setError("An unexpected error occurred. Please try again.");
+    } catch (error) {
+      // CRITICAL: Check if this is a client-side URL construction error
+      // NextAuth client-side code tries to use NEXTAUTH_URL (server-only env var)
+      // This causes "Failed to construct 'URL': Invalid URL" errors in the browser
+      const isUrlConstructionError = error instanceof Error && (
+        error.message.includes("Failed to construct 'URL'") || 
+        error.message.includes("Invalid URL") ||
+        (error.name === "TypeError" && error.message.includes("URL"))
+      );
+      
+      // If it's a URL construction error, the server-side auth might still succeed
+      // Check if we actually have a valid session despite the client-side error
+      if (isUrlConstructionError) {
+        // Don't log as error - this is expected and handled gracefully
+        // Only log in development for debugging
+        if (process.env.NODE_ENV === "development") {
+          logger.warn("Client-side URL construction error (expected - NextAuth client can't access NEXTAUTH_URL). Checking if authentication succeeded on server...");
+        }
+        
+        try {
+          const sessionRes = await fetch("/api/auth/session");
+          if (sessionRes.ok) {
+            const session = await sessionRes.json();
+            // If we have a valid session, authentication succeeded despite the client error
+            if (session?.user) {
+              logger.info("Authentication succeeded on server despite client-side URL error. Redirecting...");
+              // Redirect based on role
+              if (session.user.role === "ADMIN") {
+                router.push("/admin");
+              } else {
+                router.push(callbackUrl || "/chat");
+              }
+              router.refresh();
+              setIsLoading(false);
+              return; // Exit early - don't show error if auth succeeded
+            }
+          }
+        } catch (sessionCheckError) {
+          logger.error("Failed to check session after URL construction error", { error: sessionCheckError });
+        }
+        
+        // If no session found, it's a real auth failure
+        setError("Authentication failed. Please check your credentials and try again.");
+        setIsLoading(false);
+        return;
+      }
+      
+      // For other (non-URL-construction) errors, log them for debugging
+      logger.error("Login error", { error });
+      
+      // Check if authentication actually succeeded despite the error
+      try {
+        const sessionRes = await fetch("/api/auth/session");
+        if (sessionRes.ok) {
+          const session = await sessionRes.json();
+          if (session?.user) {
+            logger.info("Authentication succeeded despite error, redirecting...");
+            if (session.user.role === "ADMIN") {
+              router.push("/admin");
+            } else {
+              router.push(callbackUrl || "/chat");
+            }
+            router.refresh();
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch (sessionCheckError) {
+        logger.error("Failed to check session after error", { error: sessionCheckError });
+      }
+      
+      // Only show error if authentication actually failed (no session)
+      let errorMessage = "An unexpected error occurred. Please try again.";
+      if (error instanceof Error) {
+        if (error.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your connection and try again.";
+        } else if (error.message.includes("timeout")) {
+          errorMessage = "Request timed out. Please try again.";
+        } else {
+          // In development, show the actual error message
+          if (process.env.NODE_ENV === "development") {
+            errorMessage = `Error: ${error.message}`;
+          }
+        }
+      }
+      
+      setError(errorMessage);
       setIsLoading(false);
     }
   };
@@ -203,6 +360,18 @@ export default function LoginPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
 

@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { X, Search, Check, Loader2, MessageCircle, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -58,26 +58,30 @@ export function CreateRoomModal({
   const [isCreating, setIsCreating] = useState(false);
   const [groupName, setGroupName] = useState("");
 
-  // Early return after all hooks are called
-  const currentUserId = currentUser?.id;
-  if (!currentUserId) {
-    return null; // Or show loading state
-  }
-
-  // Fetch users
+  // Fetch users - moved before conditional return to fix React hooks violation
   useEffect(() => {
-    if (isOpen) {
+    const currentUserId = currentUser?.id;
+    if (isOpen && currentUserId) {
       fetchUsers();
-    } else {
+    } else if (!isOpen) {
       // Reset on close
       setMode("select");
       setSearchQuery("");
       setSelectedUsers([]);
       setGroupName("");
     }
-  }, [isOpen]);
+  }, [isOpen, currentUser?.id]);
 
-  const fetchUsers = async () => {
+  // Early return after all hooks are called
+  const currentUserId = currentUser?.id;
+  if (!currentUserId) {
+    return null; // Or show loading state
+  }
+
+  const fetchUsers = useCallback(async () => {
+    const currentUserId = currentUser?.id;
+    if (!currentUserId) return;
+
     setIsLoading(true);
     try {
       const data = await apiClient.get<{ users: User[] }>("/users", {
@@ -89,7 +93,7 @@ export function CreateRoomModal({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentUser?.id]);
 
   const filteredUsers = users.filter(
     (user) =>

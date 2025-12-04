@@ -9,13 +9,22 @@
 import { toast } from "sonner";
 
 /**
+ * API Error data structure
+ */
+export interface ApiErrorData {
+  error?: string | { code?: string; message: string; details?: Record<string, unknown> };
+  message?: string;
+  details?: Record<string, unknown>;
+}
+
+/**
  * Custom API Error class
  */
 export class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public data?: any
+    public data?: ApiErrorData
   ) {
     super(message);
     this.name = "ApiError";
@@ -61,8 +70,11 @@ class ApiClient {
         //   headers["Authorization"] = `Bearer ${session.token}`;
         // }
       }
+      // If sessionRes is not ok, silently continue - not all requests need auth
+      // Errors from NextAuth URL construction are logged server-side but don't block requests
     } catch (error) {
       // Silently fail - not all requests need auth
+      // NextAuth URL construction errors are handled server-side
     }
 
     return headers;
@@ -82,9 +94,9 @@ class ApiClient {
     response: Response,
     showErrorToast: boolean
   ): Promise<never> {
-    let errorData: any;
+    let errorData: ApiErrorData;
     try {
-      errorData = await response.json();
+      errorData = await response.json() as ApiErrorData;
     } catch {
       errorData = { error: "Unknown error occurred" };
     }

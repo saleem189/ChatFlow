@@ -6,6 +6,7 @@
 
 "use client";
 
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { toast } from "sonner";
@@ -39,25 +40,39 @@ export function useQueryApi<T>(
     onError,
   } = options || {};
 
+  // Memoize callbacks to prevent unnecessary re-renders
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  }, [onSuccess, onError]);
+
   const query = useQuery<T, ApiError>({
     queryKey: [endpoint],
     queryFn: async () => {
-      return await apiClient.get<T>(endpoint, {
+      const data = await apiClient.get<T>(endpoint, {
         showErrorToast,
       });
+      onSuccessRef.current?.(data);
+      return data;
     },
     enabled,
     staleTime,
     refetchInterval,
     retry: 1,
-    onSuccess,
-    onError: (error) => {
-      onError?.(error);
-      if (showErrorToast && error.message) {
-        toast.error(error.message);
-      }
-    },
   });
+
+  // Handle errors separately
+  useEffect(() => {
+    if (query.error) {
+      onErrorRef.current?.(query.error);
+      if (showErrorToast && query.error.message) {
+        toast.error(query.error.message);
+      }
+    }
+  }, [query.error, showErrorToast]);
 
   return {
     data: query.data ?? null,
@@ -215,11 +230,11 @@ export function useOptimisticMutation<TData, TResponse = TData>(
       // Optimistically update if function provided
       if (optimisticUpdate) {
         invalidateQueries.forEach((queryKey) => {
-          const previousData = queryClient.getQueryData([queryKey]);
+          const previousData = queryClient.getQueryData<TResponse>([queryKey]);
           if (previousData) {
-            queryClient.setQueryData([queryKey], (old: any) => {
+            queryClient.setQueryData<TResponse>([queryKey], (old: TResponse | undefined) => {
               if (Array.isArray(old)) {
-                return [...old, optimisticUpdate(variables)];
+                return [...old, optimisticUpdate(variables)] as TResponse;
               }
               return optimisticUpdate(variables);
             });
@@ -229,9 +244,9 @@ export function useOptimisticMutation<TData, TResponse = TData>(
 
       return { snapshots };
     },
-    onError: (error, variables, context) => {
+    onError: (error, variables, context: { snapshots?: Array<{ queryKey: unknown[]; snapshot: unknown }> } | undefined) => {
       // Rollback optimistic updates
-      if (context?.snapshots) {
+      if (context && typeof context === 'object' && context.snapshots) {
         context.snapshots.forEach(({ queryKey, snapshot }) => {
           queryClient.setQueryData(queryKey, snapshot);
         });

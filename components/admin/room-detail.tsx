@@ -160,7 +160,7 @@ export function RoomDetail({ room: initialRoom }: RoomDetailProps) {
               <div>
                 <p className="text-xs text-surface-500 mb-1">Created</p>
                 <p className="font-medium text-surface-900 dark:text-white">
-                  {formatMessageTime(room.createdAt)}
+                  {formatMessageTime(room.createdAt instanceof Date ? room.createdAt.toISOString() : room.createdAt)}
                 </p>
                 <p className="text-sm text-surface-500">
                   {new Date(room.createdAt).toLocaleDateString()}
@@ -191,7 +191,7 @@ export function RoomDetail({ room: initialRoom }: RoomDetailProps) {
                         {message.sender.name}
                       </span>
                       <span className="text-xs text-surface-400">
-                        {formatMessageTime(message.createdAt)}
+                        {formatMessageTime(message.createdAt instanceof Date ? message.createdAt.toISOString() : message.createdAt)}
                       </span>
                     </div>
                     <p className="text-sm text-surface-700 dark:text-surface-300">

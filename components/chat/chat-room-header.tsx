@@ -40,7 +40,7 @@ export function ChatRoomHeader({
   onToggleInfo,
   onRoomSettings,
 }: ChatRoomHeaderProps) {
-  const onlineParticipants = participants.filter((p) => p.status === "online");
+  const onlineParticipants = participants.filter((p) => ('status' in p && p.status === "online") || false);
 
   return (
     <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-surface-900 border-b border-surface-200 dark:border-surface-800">

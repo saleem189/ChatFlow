@@ -6,7 +6,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Paperclip, X, File as FileIcon, Image, Video, FileText, Reply } from "lucide-react";
+import { Send, Paperclip, X, File as FileIcon, Image as ImageIconLucide, Video, FileText, Reply } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { cn, debounce } from "@/lib/utils";
 import { EmojiPicker } from "./emoji-picker";
@@ -188,7 +189,7 @@ export function MessageInput({
 
   // Get file icon based on type
   const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith("image/")) return Image;
+    if (fileType.startsWith("image/")) return ImageIconLucide;
     if (fileType.startsWith("video/")) return Video;
     if (fileType === "application/pdf" || fileType.startsWith("text/")) return FileText;
     return FileIcon;

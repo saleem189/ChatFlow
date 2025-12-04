@@ -18,13 +18,13 @@ export interface QueuedAction {
   retries?: number;
 }
 
-interface UseOfflineQueueOptions {
+export interface UseOfflineQueueOptions {
   maxRetries?: number; // Max retry attempts per action (default: 3)
   retryDelay?: number; // Delay between retries in ms (default: 2000)
   onActionProcessed?: (action: QueuedAction, success: boolean) => void;
 }
 
-interface UseOfflineQueueReturn {
+export interface UseOfflineQueueReturn {
   queueAction: (action: Omit<QueuedAction, "id" | "timestamp">) => void;
   queueLength: number;
   clearQueue: () => void;

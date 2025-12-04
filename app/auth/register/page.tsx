@@ -61,7 +61,7 @@ export default function RegisterPage() {
 
     if (!result.success) {
       const fieldErrors: Partial<Record<keyof RegisterFormData, string>> = {};
-      result.error.errors.forEach((err) => {
+      result.error.issues.forEach((err) => {
         const field = err.path[0] as keyof RegisterFormData;
         fieldErrors[field] = err.message;
       });

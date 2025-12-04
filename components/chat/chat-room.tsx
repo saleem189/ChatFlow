@@ -41,14 +41,14 @@ import { RoomMembersPanel } from "./room-members-panel";
 import { MessageEditModal } from "./message-edit-modal";
 import { ChatRoomHeader } from "./chat-room-header";
 import { MessageItem } from "./message-item";
-import { MessageListErrorBoundary } from "./message-list-error-boundary";
-import { MessageInputErrorBoundary } from "./message-input-error-boundary";
+import { MessageListErrorBoundary, MessageInputErrorBoundary } from "@/components/error-boundary";
 import { type MessagePayload } from "@/lib/socket";
 import { apiClient } from "@/lib/api-client";
 import { TIMEOUTS } from "@/lib/constants";
 import { useMessagesStore, useUserStore, useUIStore } from "@/lib/store";
 import { useTyping, useMessageOperations, useSocket } from "@/hooks";
 import { useMessageQueue } from "@/hooks/use-message-queue";
+import { useOptimisticMessages } from "@/hooks/use-optimistic-messages";
 import { logger } from "@/lib/logger";
 import { createMessageFromPayload } from "@/lib/utils/message-helpers";
 import type { Message } from "@/lib/types/message.types";
@@ -99,27 +99,83 @@ export function ChatRoom({
   const [roomData, setRoomData] = useState(initialRoomData);
   const [participants, setParticipants] = useState(initialParticipants);
 
-  // Use selector - Zustand automatically does reference equality for single selectors
-  const messages = useMessagesStore((state) => state.messagesByRoom[roomId]);
-  const {
-    setMessages,
-    addMessage,
-    updateMessage,
-    removeMessage,
-    getMessages
-  } = useMessagesStore();
+  // Use selector with fallback to prevent undefined issues
+  // Zustand does reference equality, but we ensure array is always defined
+  const messages = useMessagesStore((state) => state.messagesByRoom[roomId] || []);
+  
+  // Destructure actions - these are stable references, won't cause re-renders
+  const setMessages = useMessagesStore((state) => state.setMessages);
+  const addMessage = useMessagesStore((state) => state.addMessage);
+  const updateMessage = useMessagesStore((state) => state.updateMessage);
+  const removeMessage = useMessagesStore((state) => state.removeMessage);
+  const getMessages = useMessagesStore((state) => state.getMessages);
 
-  // Use specialized hooks
+  // Local state for reply handling
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+
+  // Memoize callback to prevent unnecessary re-renders
+  const handleReplyCleared = useCallback(() => {
+    setReplyingTo(null);
+  }, []);
+
+  // Use specialized hooks (must be called before useOptimisticMessages)
   const { socket, isConnected } = useSocket();
   const { startTyping, stopTyping } = useTyping({ roomId, enabled: !!currentUser });
   const { sendMessage, editMessage, deleteMessage, retryMessage } = useMessageOperations({
     roomId,
     participants,
-    onReplyCleared: () => setReplyingTo(null),
+    onReplyCleared: handleReplyCleared,
   });
   const { processMessage } = useMessageQueue();
 
-  const displayMessages = messages ?? initialMessages;
+  // React 19 useOptimistic for message sending
+  // This provides automatic rollback on error
+  const { optimisticMessages, sendMessage: sendOptimisticMessage, isPending: isSendingMessage } = useOptimisticMessages({
+    initialMessages: messages.length > 0 ? messages : initialMessages,
+    onSend: async (optimisticMessage) => {
+      // Call the actual send function from useMessageOperations
+      // This handles API call, socket emission, and Zustand store update
+      await sendMessage(
+        optimisticMessage.content,
+        optimisticMessage.fileUrl ? {
+          url: optimisticMessage.fileUrl,
+          fileName: optimisticMessage.fileName || "",
+          fileSize: optimisticMessage.fileSize || 0,
+          fileType: optimisticMessage.fileType || "",
+        } : undefined,
+        optimisticMessage.replyTo ? {
+          id: optimisticMessage.replyTo.id,
+          content: optimisticMessage.replyTo.content,
+          senderName: optimisticMessage.replyTo.senderName,
+          senderAvatar: optimisticMessage.replyTo.senderAvatar || null,
+        } : null
+      );
+      
+      // Wait a bit for Zustand store to update, then get the real message
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const updatedMessages = getMessages(roomId);
+      const realMessage = updatedMessages.find(
+        (msg) => 
+          // Try to find by matching content and sender within 5 seconds
+          (msg.content === optimisticMessage.content && 
+           msg.senderId === optimisticMessage.senderId &&
+           Math.abs(new Date(msg.createdAt).getTime() - new Date(optimisticMessage.createdAt).getTime()) < 5000) ||
+          // Or by temp ID if it was updated
+          msg.id === optimisticMessage.id
+      );
+      
+      return realMessage || optimisticMessage;
+    },
+    onError: (error, optimisticMessage) => {
+      logger.error("Failed to send message", error);
+      // Error toast will be shown by apiClient
+      // Optimistic message will be automatically rolled back by React
+    },
+  });
+
+  // Use optimistic messages for display (includes pending sends)
+  // This provides automatic rollback on error
+  const displayMessages = optimisticMessages.length > 0 ? optimisticMessages : (messages ?? initialMessages);
 
   // Debug: Log when messages change
   useEffect(() => {
@@ -163,7 +219,6 @@ export function ChatRoom({
     openMessageEditModal,
     closeMessageEditModal,
   } = useUIStore();
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: Message } | null>(null);
@@ -229,7 +284,7 @@ export function ChatRoom({
   }, [messages, currentUser?.id, roomId, updateMessage]);
 
   // Use refs to store current values and avoid stale closures
-  const handleReceiveMessageRef = useRef<(message: MessagePayload) => void>();
+  const handleReceiveMessageRef = useRef<((message: MessagePayload) => Promise<void>) | undefined>(undefined);
   const participantsRef = useRef(participants);
   const currentUserRef = useRef(currentUser);
   const processingMessagesRef = useRef<Set<string>>(new Set());
@@ -574,6 +629,7 @@ export function ChatRoom({
       userName: string;
     }) => {
       const currentUser = currentUserRef.current;
+      if (!currentUser) return;
       if (typingRoomId === roomId && userId !== currentUser.id) {
         setTypingUsers((prev) => new Map(prev).set(userId, userName));
         setTypingTimeout(userId, () => {
@@ -626,6 +682,7 @@ export function ChatRoom({
 
       // Update message read status
       const currentUser = currentUserRef.current;
+      if (!currentUser) return;
       const currentMessages = getMessages(roomId);
       const message = currentMessages.find((msg) => msg.id === messageId);
 
@@ -641,6 +698,7 @@ export function ChatRoom({
 
       // Update message delivery status
       const currentUser = currentUserRef.current;
+      if (!currentUser) return;
       const currentMessages = getMessages(roomId);
       const message = currentMessages.find((msg) => msg.id === messageId);
 
@@ -653,6 +711,7 @@ export function ChatRoom({
     // Wrap handleReceiveMessage with debug logging
     const wrappedHandleReceiveMessage = (message: MessagePayload) => {
       const currentUser = currentUserRef.current;
+      if (!currentUser) return;
       logger.log("🎯 [SOCKET EVENT] receive-message handler CALLED:", {
         messageId: message.id,
         roomId: message.roomId,
@@ -687,8 +746,7 @@ export function ChatRoom({
     // Test: Manually check if we're in the room (can't directly check, but we can verify socket is connected)
     if (socket.connected) {
       logger.log("✅ Socket is connected and ready to receive messages. Socket ID:", socket.id);
-      // Emit a test event to verify server communication
-      socket.emit("ping-room", roomId);
+      // Note: ping-room is not a standard event, removed for type safety
     } else {
       logger.error("❌ Socket is NOT connected! Messages won't be received.");
     }

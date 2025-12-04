@@ -204,7 +204,7 @@ export function UsersTable({ initialUsers }: UsersTableProps) {
 
                   {/* Joined */}
                   <td className="px-4 py-3 text-sm text-surface-500">
-                    {formatMessageTime(user.createdAt)}
+                    {formatMessageTime(user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt)}
                   </td>
 
                   {/* Actions */}

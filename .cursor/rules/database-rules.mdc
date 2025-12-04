@@ -1,0 +1,30 @@
+---
+description: Apply this rule when modifying the Prisma schema, writing database queries, or creating migrations.
+globs: schema.prisma, *.ts
+alwaysApply: false
+---
+
+# Database Rules
+
+This file defines the database schema and query best practices for the ChatFlow project using Prisma.
+
+## Simplicity
+
+- **No Over-engineering:** Avoid complex solutions when simple ones suffice. Do not add features or abstractions "just in case".
+
+## Schema Design
+
+- **Naming:** Use PascalCase for models (e.g., `User`, `ChatMessage`) and camelCase for fields (e.g., `firstName`, `createdAt`).
+- **Relationships:** Clearly define relationships. Use explicit relation names when multiple relations exist between two models.
+- **Indexes:** Add indexes to fields that are frequently queried or used for filtering/sorting.
+
+## Query Optimization
+
+- **N+1 Problem:** Avoid N+1 queries. Use `include` to fetch related data in a single query when necessary, but be mindful of over-fetching.
+- **Select:** Use `select` to retrieve only the fields needed for the current operation, especially for large models.
+- **Pagination:** Always paginate large datasets (e.g., chat history, user lists).
+
+## Migrations
+
+- **Workflow:** Use `prisma migrate dev` for local schema changes. Do not use `db push` in production-like environments.
+- **Verification:** Verify migration SQL files before applying them to ensure no data loss.

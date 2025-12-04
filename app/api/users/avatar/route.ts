@@ -12,16 +12,17 @@ import { getService } from "@/lib/di";
 import { UserService } from "@/lib/services/user.service";
 import { QueueService } from "@/lib/queue/queue-service";
 
-// Get services from DI container
-const userService = getService<UserService>('userService');
-const queueService = getService<QueueService>('queueService');
+// Services are resolved asynchronously inside route handlers
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
+
+    // Get services from DI container (async)
+    const queueService = await getService<QueueService>('queueService');
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -103,6 +104,9 @@ export async function DELETE(request: NextRequest) {
     if (!session?.user) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
+
+    // Get service from DI container (async)
+    const userService = await getService<UserService>('userService');
 
     await userService.deleteAvatar(session.user.id);
 

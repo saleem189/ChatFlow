@@ -10,8 +10,7 @@ import { handleError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { getService } from "@/lib/di";
 import { MessageService } from "@/lib/services/message.service";
 
-// Get services from DI container
-const messageService = getService<MessageService>('messageService');
+// Services are resolved asynchronously inside route handlers
 
 /**
  * GET /api/messages/search
@@ -23,6 +22,9 @@ export async function GET(request: NextRequest) {
     if (!session?.user) {
       return handleError(new UnauthorizedError('You must be logged in'));
     }
+
+    // Get service from DI container (async)
+    const messageService = await getService<MessageService>('messageService');
 
     const { searchParams } = new URL(request.url);
     const roomId = searchParams.get("roomId");

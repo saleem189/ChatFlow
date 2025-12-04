@@ -1,0 +1,35 @@
+---
+description: Apply this rule when creating or modifying UI components, styling with Tailwind CSS, or implementing design requirements.
+globs: *.tsx
+alwaysApply: false
+---
+
+# Design System Rules
+
+This file defines the design system guidelines and UI/UX standards for the ChatFlow project.
+
+## Simplicity
+
+- **No Over-engineering:** Avoid complex solutions when simple ones suffice. Do not add features or abstractions "just in case".
+
+## Component Usage
+
+- **Shared Components:** Always prefer using shared UI components (e.g., from `components/ui/`) over raw HTML elements.
+- **Consistency:** Maintain consistent spacing, typography, and colors by using Tailwind CSS utility classes defined in the theme.
+
+## Tailwind CSS
+
+- **Tokens:** Use standard Tailwind spacing and color tokens (e.g., `p-4`, `text-primary`) instead of arbitrary values (e.g., `p-[16px]`, `text-[#123456]`).
+- **Responsiveness:** Design mobile-first. Use `sm:`, `md:`, `lg:` prefixes to adjust layouts for larger screens.
+- **Dark Mode:** Ensure all components support dark mode using the `dark:` prefix or CSS variables.
+
+## Accessibility
+
+- **Interactive Elements:** All buttons and links must have accessible names (text content or `aria-label`).
+- **Images:** All images must have meaningful `alt` text.
+- **Contrast:** Ensure sufficient color contrast for text and interactive elements.
+
+## Aesthetics
+
+- **Premium Feel:** Use subtle animations (framer-motion), gradients, and glassmorphism where appropriate to enhance the user experience.
+- **Feedback:** Provide immediate visual feedback for user actions (hover states, loading spinners, toast notifications).

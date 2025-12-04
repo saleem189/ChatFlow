@@ -44,6 +44,8 @@ import { useSocket } from "@/hooks/use-socket";
 import { useQueryApi } from "@/hooks/use-react-query";
 import { useOnlineUsers } from "@/hooks";
 import { useRoomsStore, useUserStore, useUIStore } from "@/lib/store";
+import type { RoomResponse } from "@/lib/types";
+import type { UserStatus } from "@/lib/types/user.types";
 
 interface ChatRoomItem {
   id: string;
@@ -71,17 +73,16 @@ export function ChatSidebar() {
   const [showUnreadOnly, setShowUnreadOnly] = useState(false);
 
   // Use UI store for modals and sidebar
-  const {
-    isCreateRoomModalOpen,
-    isSettingsModalOpen,
-    isSidebarOpen,
-    openCreateRoomModal,
-    closeCreateRoomModal,
-    openSettingsModal,
-    closeSettingsModal,
-    openSidebar,
-    closeSidebar,
-  } = useUIStore();
+  // Use individual selectors to prevent unnecessary re-renders
+  const isCreateRoomModalOpen = useUIStore((state) => state.isCreateRoomModalOpen);
+  const isSettingsModalOpen = useUIStore((state) => state.isSettingsModalOpen);
+  const isSidebarOpen = useUIStore((state) => state.isSidebarOpen);
+  const openCreateRoomModal = useUIStore((state) => state.openCreateRoomModal);
+  const closeCreateRoomModal = useUIStore((state) => state.closeCreateRoomModal);
+  const openSettingsModal = useUIStore((state) => state.openSettingsModal);
+  const closeSettingsModal = useUIStore((state) => state.closeSettingsModal);
+  const openSidebar = useUIStore((state) => state.openSidebar);
+  const closeSidebar = useUIStore((state) => state.closeSidebar);
 
   // Use centralized hooks
   const { socket, isConnected } = useSocket({ emitUserConnect: true });
@@ -93,8 +94,12 @@ export function ChatSidebar() {
     refetchInterval: 60 * 1000, // Refetch every minute in background
   });
 
-  // Use rooms store
-  const { rooms, setRooms, updateRoomLastMessage, incrementUnreadCount, clearUnreadCount } = useRoomsStore();
+  // Use rooms store - use individual selectors for better performance
+  const rooms = useRoomsStore((state) => state.rooms);
+  const setRooms = useRoomsStore((state) => state.setRooms);
+  const updateRoomLastMessage = useRoomsStore((state) => state.updateRoomLastMessage);
+  const incrementUnreadCount = useRoomsStore((state) => state.incrementUnreadCount);
+  const clearUnreadCount = useRoomsStore((state) => state.clearUnreadCount);
   const onlineUsers = onlineUserIds;
 
   // Use ref for rooms to avoid effect re-running on every change
@@ -107,8 +112,21 @@ export function ChatSidebar() {
 
   // Update rooms store when API data changes
   useEffect(() => {
-    if (roomsData?.rooms) {
-      setRooms(roomsData.rooms);
+    if (roomsData && typeof roomsData === 'object' && 'rooms' in roomsData && Array.isArray((roomsData as { rooms: RoomResponse[] }).rooms)) {
+      const roomsArray = (roomsData as { rooms: RoomResponse[] }).rooms;
+      // Transform RoomResponse to RoomStoreItem format (they're compatible)
+      const roomsWithStatus: RoomResponse[] = roomsArray.map(room => ({
+        ...room,
+        participants: room.participants.map(p => ({
+          id: p.id,
+          name: p.name,
+          avatar: p.avatar,
+          email: p.email,
+          status: (p.status || 'OFFLINE') as UserStatus,
+          role: p.role,
+        })),
+      }));
+      setRooms(roomsWithStatus);
     }
   }, [roomsData, setRooms]);
 
@@ -197,23 +215,35 @@ export function ChatSidebar() {
   // Handle room created
   const handleRoomCreated = (newRoom: ChatRoomItem) => {
     const { addRoom } = useRoomsStore.getState();
-    addRoom(newRoom as any); // Type assertion for compatibility
+    // Ensure participants have status field (convert to RoomResponse format)
+    const roomWithStatus: RoomResponse = {
+      ...newRoom,
+      participants: newRoom.participants.map(p => ({
+        id: p.id,
+        name: p.name,
+        avatar: p.avatar,
+        email: undefined,
+        status: (p.status || 'OFFLINE') as UserStatus,
+        role: undefined,
+      })),
+    };
+    addRoom(roomWithStatus);
     closeCreateRoomModal();
   };
 
   // Get display name for room (for DMs show other user's name)
-  const getRoomDisplayName = (room: ChatRoomItem) => {
+  const getRoomDisplayName = (room: ChatRoomItem | any) => {
     if (room.isGroup) return room.name;
-    const otherUser = room.participants.find((p) => p.id !== user.id);
+    const otherUser = room.participants?.find((p: any) => p.id !== user.id);
     return otherUser?.name || room.name;
   };
 
   // Check if other user is online
-  const isRoomOnline = (room: ChatRoomItem) => {
+  const isRoomOnline = (room: ChatRoomItem | any) => {
     if (room.isGroup) {
-      return room.participants.some((p) => p.id !== user.id && onlineUsers.has(p.id));
+      return room.participants?.some((p: any) => p.id !== user.id && onlineUsers.has(p.id)) || false;
     }
-    const otherUser = room.participants.find((p) => p.id !== user.id);
+    const otherUser = room.participants?.find((p: any) => p.id !== user.id);
     return otherUser ? onlineUsers.has(otherUser.id) : false;
   };
 
@@ -484,7 +514,6 @@ export function ChatSidebar() {
         isOpen={isCreateRoomModalOpen}
         onClose={closeCreateRoomModal}
         onRoomCreated={handleRoomCreated}
-        currentUserId={user.id}
       />
 
       {/* Settings Modal */}

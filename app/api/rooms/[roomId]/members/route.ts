@@ -9,13 +9,12 @@ import { handleError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { getService } from "@/lib/di";
 import { RoomService } from "@/lib/services/room.service";
 
-// Get services from DI container
-const roomService = getService<RoomService>('roomService');
+// Services are resolved asynchronously inside route handlers
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     roomId: string;
-  };
+  }>;
 }
 
 /**
@@ -32,7 +31,10 @@ export async function DELETE(
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    const { roomId } = params;
+    // Get service from DI container (async)
+    const roomService = await getService<RoomService>('roomService');
+
+    const { roomId } = await params;
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId");
 
@@ -61,7 +63,10 @@ export async function POST(
       return handleError(new UnauthorizedError('You must be logged in'));
     }
 
-    const { roomId } = params;
+    // Get service from DI container (async)
+    const roomService = await getService<RoomService>('roomService');
+
+    const { roomId } = await params;
     const body = await request.json();
     const { userIds } = body;
 

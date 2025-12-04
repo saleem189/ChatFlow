@@ -11,19 +11,19 @@ import { RecentActivity } from "@/components/admin/recent-activity";
 import { OnlineUsers } from "@/components/admin/online-users";
 
 // Code split heavy chart components for better performance
+// Note: ssr: false is not allowed in Server Components in Next.js 16
+// Charts will be client-side rendered automatically
 const RealtimeLineChart = dynamic(
   () => import("@/components/admin/realtime-line-chart").then((mod) => ({ default: mod.RealtimeLineChart })),
   { 
-    loading: () => <div className="h-64 flex items-center justify-center text-surface-500">Loading chart...</div>,
-    ssr: false // Charts don't need SSR
+    loading: () => <div className="h-64 flex items-center justify-center text-gray-500">Loading chart...</div>
   }
 );
 
 const UserActivityLineChart = dynamic(
   () => import("@/components/admin/user-activity-line-chart").then((mod) => ({ default: mod.UserActivityLineChart })),
   { 
-    loading: () => <div className="h-64 flex items-center justify-center text-surface-500">Loading chart...</div>,
-    ssr: false
+    loading: () => <div className="h-64 flex items-center justify-center text-gray-500">Loading chart...</div>
   }
 );
 

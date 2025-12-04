@@ -5,7 +5,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { io } from "socket.io-client";
 import {
   Activity,
   MessageSquare,
@@ -34,7 +33,6 @@ export default function ActivityPage() {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [messagesPerMinute, setMessagesPerMinute] = useState(0);
   const [activeRooms, setActiveRooms] = useState<Set<string>>(new Set());
-  const messageCountRef = useState(0)[0];
   const [messageCount, setMessageCount] = useState(0);
   // Use centralized online users hook
   const { onlineCount } = useOnlineUsers();

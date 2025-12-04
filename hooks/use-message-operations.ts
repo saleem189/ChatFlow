@@ -78,11 +78,11 @@ export function useMessageOperations({
    * Determine message type from file data
    */
   const getMessageType = useCallback((fileData?: FileData): MessageType => {
-    if (!fileData) return "text";
-    if (fileData.fileType.startsWith("image/")) return "image";
-    if (fileData.fileType.startsWith("video/")) return "video";
-    if (fileData.fileType.startsWith("audio/")) return "audio";
-    return "file";
+    if (!fileData) return "TEXT";
+    if (fileData.fileType.startsWith("image/")) return "IMAGE";
+    if (fileData.fileType.startsWith("video/")) return "VIDEO";
+    if (fileData.fileType.startsWith("audio/")) return "AUDIO";
+    return "FILE";
   }, []);
 
   /**
@@ -172,7 +172,7 @@ export function useMessageOperations({
           fileName: fileData?.fileName,
           fileSize: fileData?.fileSize,
           fileType: fileData?.fileType,
-          type: messageType,
+          type: messageType.toLowerCase(), // Convert to lowercase for API validation
           replyToId: replyTo?.id || null,
         });
 

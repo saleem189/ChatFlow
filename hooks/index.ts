@@ -8,9 +8,13 @@ export type { UseOnlineUsersOptions, UseOnlineUsersReturn } from './use-online-u
 export { useSocket } from './use-socket';
 export type { UseSocketOptions, UseSocketReturn } from './use-socket';
 
+// Deprecated: Use useQueryApi and useMutationApi instead
+// @deprecated - Use useQueryApi for GET requests and useMutationApi for mutations
 export { useApi, useApiPost, useApiPatch, useApiDelete } from './use-api';
-export { useQueryApi, useMutationApi, useOptimisticMutation } from './use-react-query';
 export type { UseApiOptions, UseApiReturn } from './use-api';
+
+// Preferred: React Query based hooks (better caching, deduplication, background refetching)
+export { useQueryApi, useMutationApi, useOptimisticMutation } from './use-react-query';
 
 export { useTyping } from './use-typing';
 export type { UseTypingOptions, UseTypingReturn } from './use-typing';

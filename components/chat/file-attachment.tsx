@@ -5,7 +5,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Image, Video, File, Download, FileText, Play, X, Maximize2 } from "lucide-react";
+import { Image as ImageIcon, Video, File, Download, FileText, Play, X, Maximize2 } from "lucide-react";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { VoiceMessage } from "./voice-message";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,7 +109,7 @@ export function FileAttachment({
               </div>
             )}
             <Image
-              ref={imgRef}
+              ref={imgRef as any}
               src={fileUrl}
               alt={fileName}
               width={400}
@@ -131,7 +132,7 @@ export function FileAttachment({
               }}
               onClick={handleImageClick}
               onLoad={(e) => {
-                const img = e.currentTarget;
+                const img = e.currentTarget as HTMLImageElement;
                 // Check if image is actually loaded
                 if (img.complete && (img.naturalWidth > 0 || img.naturalHeight > 0)) {
                   setImageLoaded(true);
@@ -253,11 +254,15 @@ export function FileAttachment({
           >
             <X className="w-6 h-6" />
           </button>
-          <img
+          <Image
             src={fileUrl}
             alt={fileName}
+            width={1920}
+            height={1080}
             className="max-w-full max-h-full object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
+            unoptimized={fileUrl.startsWith('/uploads')}
+            style={{ maxWidth: '100%', maxHeight: '100%', height: 'auto', width: 'auto' }}
           />
           <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/50 px-4 py-2 rounded-lg">
             <p className="text-white text-sm">{fileName}</p>

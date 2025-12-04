@@ -7,13 +7,23 @@
 import { EmailServiceFactory, type EmailParams, type EmailResult } from './factories/email.factory';
 import { getService } from '@/lib/di';
 import { ConfigService } from '@/lib/config/config.service';
-import { logger } from '@/lib/logger';
+import type { ILogger } from '@/lib/logger/logger.interface';
 
 export class EmailService {
-  private configService: ConfigService;
+  private configService: ConfigService | null = null;
 
-  constructor() {
-    this.configService = getService<ConfigService>('configService');
+  constructor(private logger: ILogger) {
+    // ConfigService will be resolved lazily when needed
+  }
+
+  /**
+   * Get config service (lazy initialization)
+   */
+  private async getConfigService(): Promise<ConfigService> {
+    if (!this.configService) {
+      this.configService = await getService<ConfigService>('configService');
+    }
+    return this.configService;
   }
 
   /**
@@ -24,7 +34,9 @@ export class EmailService {
       const provider = await EmailServiceFactory.getInstance().create();
       return await provider.sendEmail(params);
     } catch (error: any) {
-      logger.error('Error sending email:', error);
+      this.logger.error('Error sending email:', error, {
+        component: 'EmailService',
+      });
       throw error;
     }
   }
@@ -37,7 +49,9 @@ export class EmailService {
       const provider = await EmailServiceFactory.getInstance().create();
       return await provider.sendBulk({ emails });
     } catch (error: any) {
-      logger.error('Error sending bulk emails:', error);
+      this.logger.error('Error sending bulk emails:', error, {
+        component: 'EmailService',
+      });
       throw error;
     }
   }
@@ -46,7 +60,8 @@ export class EmailService {
    * Send welcome email to new user
    */
   async sendWelcomeEmail(email: string, name: string): Promise<EmailResult> {
-    const from = await this.configService.get('email.from', 'noreply@yourapp.com');
+    const configService = await this.getConfigService();
+    const from = await configService.get('email.from', 'noreply@yourapp.com');
 
     return await this.sendEmail({
       to: email,
@@ -65,7 +80,8 @@ export class EmailService {
    * Send password reset email
    */
   async sendPasswordResetEmail(email: string, resetToken: string, resetUrl: string): Promise<EmailResult> {
-    const from = await this.configService.get('email.from', 'noreply@yourapp.com');
+    const configService = await this.getConfigService();
+    const from = await configService.get('email.from', 'noreply@yourapp.com');
 
     return await this.sendEmail({
       to: email,
@@ -86,7 +102,8 @@ export class EmailService {
    * Send email verification
    */
   async sendVerificationEmail(email: string, verificationToken: string, verificationUrl: string): Promise<EmailResult> {
-    const from = await this.configService.get('email.from', 'noreply@yourapp.com');
+    const configService = await this.getConfigService();
+    const from = await configService.get('email.from', 'noreply@yourapp.com');
 
     return await this.sendEmail({
       to: email,
@@ -118,7 +135,8 @@ export class EmailService {
       ${actionUrl ? `<p><a href="${actionUrl}">${actionText || 'View Details'}</a></p>` : ''}
     `;
 
-    const from = await this.configService.get('email.from', 'noreply@yourapp.com');
+    const configService = await this.getConfigService();
+    const from = await configService.get('email.from', 'noreply@yourapp.com');
 
     return await this.sendEmail({
       to: email,
@@ -133,7 +151,8 @@ export class EmailService {
    * Get current email provider
    */
   async getCurrentProvider(): Promise<string> {
-    return await this.configService.get('email.provider', 'aws-ses');
+    const configService = await this.getConfigService();
+    return await configService.get('email.provider', 'aws-ses');
   }
 
   /**
@@ -145,10 +164,11 @@ export class EmailService {
       throw new Error(`Email provider '${provider}' is not registered`);
     }
 
-    await this.configService.set('email.provider', provider);
+    const configService = await this.getConfigService();
+    await configService.set('email.provider', provider);
 
-    logger.log(`✅ Email provider switched to: ${provider}`);
-    logger.log(`   Next email will use: ${provider}`);
+    this.logger.log(`✅ Email provider switched to: ${provider}`);
+    this.logger.log(`   Next email will use: ${provider}`);
   }
 }
 
