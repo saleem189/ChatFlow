@@ -16,13 +16,12 @@ const USER_MESSAGE_MAP: Record<string, string> = {
   INTERNAL_ERROR: "Something went wrong. Please try again later.",
   NOT_AUTHENTICATED: "Please log in to continue.",
   ACCESS_DENIED: "You don't have permission to perform this action.",
-  NOT_FOUND: "The requested resource was not found.",
   RATE_LIMITED: "Too many requests. Please wait a moment.",
-  
+
   // Network errors
   "NetworkError": "Network error. Please check your connection.",
   "Failed to fetch": "Unable to connect to the server. Please check your internet connection.",
-  
+
   // Default messages by category
   [ErrorCategory.NETWORK]: "Network error. Please check your connection and try again.",
   [ErrorCategory.AUTHENTICATION]: "Authentication failed. Please log in again.",
@@ -40,7 +39,7 @@ export function getUserMessage(error: unknown): string {
   // Check if it's an ApiError with a code
   if (error instanceof ApiError) {
     const errorData = error.data;
-    
+
     // Check for error code in nested structure
     if (errorData?.error && typeof errorData.error === "object" && "code" in errorData.error) {
       const code = errorData.error.code as string;
@@ -48,29 +47,29 @@ export function getUserMessage(error: unknown): string {
         return USER_MESSAGE_MAP[code];
       }
     }
-    
+
     // Check for direct error message
     if (error.message && USER_MESSAGE_MAP[error.message]) {
       return USER_MESSAGE_MAP[error.message];
     }
-    
+
     // Use error message if it's user-friendly
     if (error.message && !error.message.includes("Request failed")) {
       return error.message;
     }
   }
-  
+
   // Check for standard error messages
   if (error instanceof Error) {
     if (USER_MESSAGE_MAP[error.message]) {
       return USER_MESSAGE_MAP[error.message];
     }
-    
+
     if (USER_MESSAGE_MAP[error.name]) {
       return USER_MESSAGE_MAP[error.name];
     }
   }
-  
+
   // Fall back to category-based message
   const category = categorizeError(error);
   return USER_MESSAGE_MAP[category] || USER_MESSAGE_MAP[ErrorCategory.UNKNOWN];
@@ -85,13 +84,13 @@ export function shouldShowErrorToUser(error: unknown): boolean {
     if (error.status === 401 || error.status === 403) {
       return false;
     }
-    
+
     // Don't show generic 404s (resource not found)
     if (error.status === 404 && !error.message.includes("not found")) {
       return false;
     }
   }
-  
+
   return true;
 }
 
@@ -112,7 +111,7 @@ export function getErrorSeverity(error: unknown): ErrorSeverity {
       return "info";
     }
   }
-  
+
   return "error";
 }
 

@@ -2,6 +2,10 @@
 // Custom Hooks Exports
 // ================================
 
+// Organized API hooks (recommended)
+// Usage: import { useRooms, useSendMessage } from '@/hooks/api';
+export * from './api';
+
 export { useOnlineUsers } from './use-online-users';
 export type { UseOnlineUsersOptions, UseOnlineUsersReturn } from './use-online-users';
 
@@ -30,4 +34,5 @@ export type { QueuedAction, UseOfflineQueueOptions, UseOfflineQueueReturn } from
 
 export { useNetworkStatus } from './use-network-status';
 export type { NetworkStatus, ConnectionSpeed, UseNetworkStatusOptions, UseNetworkStatusReturn } from './use-network-status';
+
 

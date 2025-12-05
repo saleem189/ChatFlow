@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient, UseQueryOptions, UseMutationOptions } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { toast } from "sonner";
@@ -190,7 +190,10 @@ export function useOptimisticMutation<TData, TResponse = TData>(
     optimisticUpdate,
   } = options || {};
 
-  const mutation = useMutation<TResponse, ApiError, TData>({
+  // Define context type for optimistic updates
+  type MutationContext = { snapshots: Array<{ queryKey: unknown[]; snapshot: unknown }> };
+
+  const mutation = useMutation<TResponse, ApiError, TData, MutationContext>({
     mutationFn: async (data: TData) => {
       switch (method) {
         case "POST":
@@ -244,9 +247,9 @@ export function useOptimisticMutation<TData, TResponse = TData>(
 
       return { snapshots };
     },
-    onError: (error, variables, context: { snapshots?: Array<{ queryKey: unknown[]; snapshot: unknown }> } | undefined) => {
+    onError: (error: ApiError, _variables: TData, context: MutationContext | undefined) => {
       // Rollback optimistic updates
-      if (context && typeof context === 'object' && context.snapshots) {
+      if (context?.snapshots) {
         context.snapshots.forEach(({ queryKey, snapshot }) => {
           queryClient.setQueryData(queryKey, snapshot);
         });

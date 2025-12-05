@@ -53,6 +53,8 @@ import { logger } from "@/lib/logger";
 import { createMessageFromPayload } from "@/lib/utils/message-helpers";
 import type { Message } from "@/lib/types/message.types";
 import { VirtualizedMessageList } from "./virtualized-message-list";
+// Features
+import { PinnedMessagesPanel, type MentionableUser } from "@/features";
 
 interface Participant {
   id: string;
@@ -102,7 +104,7 @@ export function ChatRoom({
   // Use selector with fallback to prevent undefined issues
   // Zustand does reference equality, but we ensure array is always defined
   const messages = useMessagesStore((state) => state.messagesByRoom[roomId] || []);
-  
+
   // Destructure actions - these are stable references, won't cause re-renders
   const setMessages = useMessagesStore((state) => state.setMessages);
   const addMessage = useMessagesStore((state) => state.addMessage);
@@ -150,20 +152,20 @@ export function ChatRoom({
           senderAvatar: optimisticMessage.replyTo.senderAvatar || null,
         } : null
       );
-      
+
       // Wait a bit for Zustand store to update, then get the real message
       await new Promise(resolve => setTimeout(resolve, 100));
       const updatedMessages = getMessages(roomId);
       const realMessage = updatedMessages.find(
-        (msg) => 
+        (msg) =>
           // Try to find by matching content and sender within 5 seconds
-          (msg.content === optimisticMessage.content && 
-           msg.senderId === optimisticMessage.senderId &&
-           Math.abs(new Date(msg.createdAt).getTime() - new Date(optimisticMessage.createdAt).getTime()) < 5000) ||
+          (msg.content === optimisticMessage.content &&
+            msg.senderId === optimisticMessage.senderId &&
+            Math.abs(new Date(msg.createdAt).getTime() - new Date(optimisticMessage.createdAt).getTime()) < 5000) ||
           // Or by temp ID if it was updated
           msg.id === optimisticMessage.id
       );
-      
+
       return realMessage || optimisticMessage;
     },
     onError: (error, optimisticMessage) => {
@@ -221,9 +223,21 @@ export function ChatRoom({
   } = useUIStore();
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: Message } | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
+  // Convert participants to mentionable users format
+  const mentionableUsers: MentionableUser[] = useMemo(() => (
+    participants
+      .filter(p => p.id !== currentUserId)
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        avatar: p.avatar,
+        isOnline: onlineUsers.has(p.id) || p.status === "online",
+      }))
+  ), [participants, currentUserId, onlineUsers]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const currentRoomRef = useRef<string | null>(null);
@@ -937,10 +951,34 @@ export function ChatRoom({
         isRoomAdmin={isRoomAdmin || false}
         showSearch={showSearch}
         showInfo={isInfoPanelOpen}
+        showPinnedMessages={showPinnedMessages}
+        pinnedMessagesCount={0} // TODO: Fetch from API
         onToggleSearch={() => setShowSearch(!showSearch)}
         onToggleInfo={toggleInfoPanel}
+        onTogglePinnedMessages={() => setShowPinnedMessages(!showPinnedMessages)}
         onRoomSettings={openRoomSettingsModal}
       />
+
+      {/* Pinned Messages */}
+      {showPinnedMessages && (
+        <PinnedMessagesPanel
+          pinnedMessages={[]} // TODO: Fetch from API
+          onUnpin={(messageId) => {
+            toast.info("Unpin feature coming soon (API integration needed)");
+          }}
+          onJumpToMessage={(messageId) => {
+            // Basic jump to message implementation
+            const element = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+              toast.info("Message not found in current view");
+            }
+          }}
+          canUnpin={isRoomAdmin || false}
+          isLoading={false}
+        />
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
@@ -1157,6 +1195,7 @@ export function ChatRoom({
               senderName: replyingTo.senderName,
             } : null}
             onCancelReply={() => setReplyingTo(null)}
+            mentionableUsers={mentionableUsers}
           />
         </div>
       </MessageInputErrorBoundary>

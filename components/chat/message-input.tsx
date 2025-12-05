@@ -2,10 +2,11 @@
 // Message Input Component
 // ================================
 // Input field for sending messages with typing indicator support
+// Includes @mentions, quick replies, emoji picker, and voice recording
 
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Send, Paperclip, X, File as FileIcon, Image as ImageIconLucide, Video, FileText, Reply } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -13,6 +14,17 @@ import { cn, debounce } from "@/lib/utils";
 import { EmojiPicker } from "./emoji-picker";
 import { VoiceRecorder } from "./voice-recorder";
 import { useFileUpload } from "@/hooks";
+// Features
+import {
+  useMentions,
+  MentionSuggestions,
+  type MentionableUser,
+  detectShortcut,
+  getTemplateByShortcut,
+  QuickReplyPicker,
+  type QuickReplyTemplate,
+  DEFAULT_QUICK_REPLIES,
+} from "@/features";
 
 interface MessageInputProps {
   onSendMessage: (content: string, fileData?: {
@@ -29,6 +41,9 @@ interface MessageInputProps {
     senderName: string;
   } | null;
   onCancelReply?: () => void;
+  // New props for mentions and quick replies
+  mentionableUsers?: MentionableUser[];
+  quickReplyTemplates?: QuickReplyTemplate[];
 }
 
 export function MessageInput({
@@ -37,6 +52,8 @@ export function MessageInput({
   disabled = false,
   replyTo,
   onCancelReply,
+  mentionableUsers = [],
+  quickReplyTemplates,
 }: MessageInputProps) {
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<{
@@ -49,6 +66,29 @@ export function MessageInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isTypingRef = useRef(false);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  // Initialize quick reply templates with defaults if not provided
+  const templates = useMemo(() => {
+    if (quickReplyTemplates) return quickReplyTemplates;
+    // Convert defaults to full templates with IDs
+    return DEFAULT_QUICK_REPLIES.map((t, i) => ({
+      ...t,
+      id: `default-${i}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+  }, [quickReplyTemplates]);
+
+  // Mentions hook
+  const {
+    isOpen: mentionsOpen,
+    filteredUsers,
+    selectedIndex: mentionSelectedIndex,
+    handleTextChange: handleMentionTextChange,
+    handleKeyDown: handleMentionKeyDown,
+    selectUser: selectMentionUser,
+    close: closeMentions,
+  } = useMentions({ users: mentionableUsers });
 
   // Use file upload hook
   const { upload, uploading: uploadingFile } = useFileUpload();
@@ -74,10 +114,27 @@ export function MessageInput({
 
   // Handle input change
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setMessage(e.target.value);
+    const newValue = e.target.value;
+    const cursorPos = e.target.selectionStart;
+
+    setMessage(newValue);
+
+    // Check for mention trigger
+    handleMentionTextChange(newValue, cursorPos);
+
+    // Check for quick reply shortcut (e.g., /thanks)
+    const shortcut = detectShortcut(newValue);
+    if (shortcut) {
+      const template = getTemplateByShortcut(shortcut, templates);
+      if (template) {
+        // Auto-expand the shortcut
+        setMessage(template.content);
+        return;
+      }
+    }
 
     // Emit typing event
-    if (e.target.value.trim() && !isTypingRef.current) {
+    if (newValue.trim() && !isTypingRef.current) {
       isTypingRef.current = true;
       onTyping(true);
     }
@@ -112,11 +169,47 @@ export function MessageInput({
 
   // Handle key press
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const textarea = textareaRef.current;
+    const cursorPos = textarea?.selectionStart || 0;
+
+    // Handle mention keyboard navigation first
+    if (mentionsOpen) {
+      const result = handleMentionKeyDown(e, message, cursorPos);
+      if (result.preventDefault) {
+        e.preventDefault();
+        if (result.newText !== undefined) {
+          setMessage(result.newText);
+          // Set cursor position after mention
+          setTimeout(() => {
+            textarea?.setSelectionRange(result.newCursorPosition!, result.newCursorPosition!);
+          }, 0);
+        }
+        return;
+      }
+    }
+
     // Send on Enter (without Shift)
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  // Handle mention selection from dropdown
+  const handleMentionSelect = (user: MentionableUser) => {
+    const cursorPos = textareaRef.current?.selectionStart || message.length;
+    const result = selectMentionUser(user, message, cursorPos);
+    setMessage(result.newText);
+    setTimeout(() => {
+      textareaRef.current?.setSelectionRange(result.newCursorPosition, result.newCursorPosition);
+      textareaRef.current?.focus();
+    }, 0);
+  };
+
+  // Handle quick reply selection
+  const handleQuickReplySelect = (template: QuickReplyTemplate) => {
+    setMessage(template.content);
+    textareaRef.current?.focus();
   };
 
   // Handle emoji selection
@@ -127,7 +220,7 @@ export function MessageInput({
       const end = textarea.selectionEnd;
       const newMessage = message.substring(0, start) + emoji + message.substring(end);
       setMessage(newMessage);
-      
+
       // Set cursor position after emoji
       setTimeout(() => {
         textarea.focus();
@@ -335,7 +428,7 @@ export function MessageInput({
 
               // Upload audio file using the hook (it handles uploading state automatically)
               const result = await upload(file);
-              
+
               if (result) {
                 // Send voice message
                 onSendMessage("", {
@@ -359,6 +452,12 @@ export function MessageInput({
           }}
         />
 
+        {/* Quick Reply Picker */}
+        <QuickReplyPicker
+          templates={templates}
+          onSelect={handleQuickReplySelect}
+        />
+
         {/* Attachment Button */}
         <label className="w-10 h-10 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 flex items-center justify-center text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 transition-colors flex-shrink-0 cursor-pointer" title="Attach file">
           <input
@@ -377,7 +476,8 @@ export function MessageInput({
             value={message}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            onBlur={() => setTimeout(closeMentions, 200)}
+            placeholder="Type a message... (use @ to mention, / for quick replies)"
             disabled={disabled}
             rows={1}
             className={cn(
@@ -391,6 +491,16 @@ export function MessageInput({
               "max-h-[150px] scrollbar-hide"
             )}
           />
+
+          {/* Mention Suggestions */}
+          {mentionsOpen && filteredUsers.length > 0 && (
+            <MentionSuggestions
+              users={filteredUsers}
+              selectedIndex={mentionSelectedIndex}
+              onSelect={handleMentionSelect}
+              onClose={closeMentions}
+            />
+          )}
 
           {/* Emoji Picker */}
           <div className="absolute right-3 bottom-2.5">

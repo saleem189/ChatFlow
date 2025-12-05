@@ -6,7 +6,7 @@
 /**
  * Supported browser permission names
  */
-export type PermissionName = 
+export type PermissionName =
   | 'microphone'
   | 'camera'
   | 'notifications'
@@ -49,6 +49,7 @@ export interface UsePermissionOptions extends PermissionRequestOptions {
   checkInterval?: number; // Auto-check interval in ms (default: no auto-check)
   storageKey?: string; // Custom localStorage key
   requestOnMount?: boolean; // Request permission on mount if in 'prompt' state (default: false)
+  rememberDecision?: boolean; // Remember the user's decision (default: true)
 }
 
 /**

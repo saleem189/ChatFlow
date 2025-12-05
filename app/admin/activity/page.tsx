@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { RelativeTime } from "@/components/admin/relative-time";
 import { useOnlineUsers, useSocket } from "@/hooks";
+import { logger } from "@/lib/logger";
 
 
 interface ActivityItem {
@@ -36,7 +37,7 @@ export default function ActivityPage() {
   const [messageCount, setMessageCount] = useState(0);
   // Use centralized online users hook
   const { onlineCount } = useOnlineUsers();
-  
+
   // Use centralized socket hook
   const { socket, isConnected } = useSocket({ emitUserConnect: true });
 
@@ -55,7 +56,7 @@ export default function ActivityPage() {
 
     // Listen for user online/offline events for activity feed
     const handleUserOnline = (userId: string) => {
-      console.log("🟢 Activity Feed: User online", userId);
+      logger.log("🟢 Activity Feed: User online", { userId });
       addActivity({
         id: `online_${Date.now()}_${Math.random()}`,
         type: "user_online",
@@ -65,7 +66,7 @@ export default function ActivityPage() {
     };
 
     const handleUserOffline = (userId: string) => {
-      console.log("🔴 Activity Feed: User offline", userId);
+      logger.log("🔴 Activity Feed: User offline", { userId });
       addActivity({
         id: `offline_${Date.now()}_${Math.random()}`,
         type: "user_offline",
@@ -75,7 +76,7 @@ export default function ActivityPage() {
     };
 
     const handleReceiveMessage = (message: any) => {
-      console.log("💬 Activity Feed: Message received", message);
+      logger.log("💬 Activity Feed: Message received", { messageId: message.id, roomId: message.roomId });
       setMessageCount((prev) => prev + 1);
       setActiveRooms((prev) => new Set([...prev, message.roomId]));
 

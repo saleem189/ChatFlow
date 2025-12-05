@@ -1,0 +1,69 @@
+---
+description: When performing a full audit of the ChatFlow application, including frontend, backend, services, sockets, caching, and integrations. This rule ensures all audits follow project architecture and coding standards.
+alwaysApply: false
+---
+# Audit Report Rules
+
+This file defines the full audit protocol and standards for the ChatFlow project. It should be used whenever an AI agent or developer is asked to generate an audit report.
+
+## Scope
+
+- Include all files in `/src`, `/services`, `/client`, `/server`, `/components`.
+- Include newly added, updated, or modified files since the last audit.
+- Exclude `/node_modules`, `/build`, `/.next`, `/public`, `/config` unless explicitly required for review.
+- Cover frontend (React, hooks, Next.js), backend (API routes, services), real-time sockets, caching, and external integrations (Twilio, Sentry, etc.).
+
+## Architecture & Code Structure
+
+- Verify client/server separation.
+- Detect circular dependencies or folder/module boundary violations.
+- Check proper use of dynamic imports and lazy loading.
+- Suggest improvements in modularity, separation of concerns, and maintainability.
+
+## Code Quality & Best Practices
+
+- Detect code smells, anti-patterns, redundant code, or outdated syntax.
+- Check TypeScript type safety and proper React/Next.js hook usage.
+- Highlight improper or missing comments, hardcoded values, or repeated logic.
+
+## Performance & Optimization
+
+- Identify unoptimized loops, nested queries, or redundant API/database calls.
+- Review caching strategies and suggest improvements.
+- Detect memory leaks, unclosed sockets, or uncleaned timers/listeners.
+
+## Dependencies & Library Usage
+
+- List all libraries used and analyze if they are fully utilized.
+- Detect redundant or misused packages.
+- Suggest alternative libraries if better performance or maintainability is possible.
+
+## Security & Validation
+
+- Verify API input validation and sanitization.
+- Review authentication and authorization patterns.
+- Detect exposure of secrets, unsafe patterns, or potential vulnerabilities.
+
+## Sockets & Real-Time Communication
+
+- Analyze socket implementations, event handling, and scalability.
+- Detect potential race conditions, memory leaks, or unhandled errors.
+- Suggest improvements for reliability and efficiency.
+
+## Testing & Coverage
+
+- Identify missing or incomplete unit, integration, or API tests.
+- Suggest critical areas where additional test coverage is required.
+
+## Observability & Logging
+
+- Check Sentry, logging, and error handling practices.
+- Suggest improvements for monitoring, alerts, and observability.
+
+## Output Requirements
+
+- Provide a structured report with separate sections for each category.
+- Include a risk rating (High, Medium, Low) for each finding.
+- Provide actionable recommendations and example fixes where possible.
+- Highlight areas requiring human review before any code changes.
+- Do not make automatic code modifications; this is strictly a review.

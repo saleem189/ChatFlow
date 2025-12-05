@@ -4,7 +4,7 @@
 // Simple Redis connection configuration for BullMQ queues
 // SERVER-ONLY: Uses Node.js modules
 
-import 'server-only'; // Mark as server-only to prevent client bundling
+// import 'server-only'; // Commented out to allow usage in worker.ts
 
 import Redis from 'ioredis';
 import { logger } from '@/lib/logger';

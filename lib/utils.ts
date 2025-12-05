@@ -30,28 +30,3 @@ export { formatChatListTime } from './utils/date-formatter';
  * @returns Formatted time string
  */
 export { formatMessageTime } from './utils/date-formatter';
-
-/**
- * Debounce function - delays execution until after wait time has passed
- * @param func - Function to debounce
- * @param wait - Wait time in milliseconds (default: 300)
- * @returns Debounced function
- */
-export function debounce<T extends (...args: unknown[]) => unknown>(
-  func: T,
-  wait: number = 300
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null
-
-  return function executedFunction(...args: Parameters<T>) {
-    const later = () => {
-      timeout = null
-      func(...args)
-    }
-
-    if (timeout) {
-      clearTimeout(timeout)
-    }
-    timeout = setTimeout(later, wait)
-  }
-}

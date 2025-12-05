@@ -27,6 +27,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn, getInitials, formatChatListTime } from "@/lib/utils";
+import { logger } from "@/lib/logger";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 // Code split modals for better initial load performance
 import dynamic from "next/dynamic";
@@ -138,14 +139,14 @@ export function ChatSidebar() {
 
     // MAIN: Listen for ALL messages to update sidebar
     const handleReceiveMessage = (message: any) => {
-      console.log("📩 SIDEBAR: Received message!", message);
+      logger.log("📩 SIDEBAR: Received message", { messageId: message.id, roomId: message.roomId });
 
       // Check if room exists in store (use ref)
       const roomExists = roomsRef.current.some((r) => r.id === message.roomId);
 
       if (!roomExists) {
         // Room not in list - refetch
-        console.log("🔄 SIDEBAR: New room, refetching...");
+        logger.log("🔄 SIDEBAR: New room, refetching...");
         fetchRooms();
         return;
       }
@@ -167,7 +168,7 @@ export function ChatSidebar() {
       // 2. User is NOT the sender
       if (!isViewingThisRoom && !isSender) {
         incrementUnreadCount(message.roomId);
-        console.log("🔴 SIDEBAR: New unread message!");
+        logger.log("🔴 SIDEBAR: New unread message");
 
         if (Notification.permission === "granted") {
           new Notification(message.senderName, {
@@ -177,7 +178,7 @@ export function ChatSidebar() {
         }
       }
 
-      console.log("✅ SIDEBAR: Updated rooms list");
+      logger.log("✅ SIDEBAR: Updated rooms list");
     };
 
     socket.on("receive-message", handleReceiveMessage);

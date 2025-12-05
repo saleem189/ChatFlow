@@ -5,7 +5,7 @@
 
 "use client";
 
-import { Hash, Phone, Video, Info, Search } from "lucide-react";
+import { Hash, Phone, Video, Info, Search, Pin } from "lucide-react";
 import { toast } from "sonner";
 import { cn, getInitials } from "@/lib/utils";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -23,8 +23,11 @@ interface ChatRoomHeaderProps {
   isRoomAdmin: boolean;
   showSearch: boolean;
   showInfo: boolean;
+  showPinnedMessages?: boolean;
+  pinnedMessagesCount?: number;
   onToggleSearch: () => void;
   onToggleInfo: () => void;
+  onTogglePinnedMessages?: () => void;
   onRoomSettings: () => void;
 }
 
@@ -36,8 +39,11 @@ export function ChatRoomHeader({
   isRoomAdmin,
   showSearch,
   showInfo,
+  showPinnedMessages = false,
+  pinnedMessagesCount = 0,
   onToggleSearch,
   onToggleInfo,
+  onTogglePinnedMessages,
   onRoomSettings,
 }: ChatRoomHeaderProps) {
   const onlineParticipants = participants.filter((p) => ('status' in p && p.status === "online") || false);
@@ -72,14 +78,34 @@ export function ChatRoomHeader({
             {isGroup
               ? `${participants.length} members`
               : onlineParticipants.length > 0
-              ? "Online"
-              : "Offline"}
+                ? "Online"
+                : "Offline"}
           </p>
         </div>
       </div>
 
       {/* Actions */}
       <div className="flex items-center gap-1">
+        {/* Pinned Messages Toggle */}
+        {onTogglePinnedMessages && (
+          <button
+            onClick={onTogglePinnedMessages}
+            className={cn(
+              "w-9 h-9 rounded-lg flex items-center justify-center transition-colors relative",
+              showPinnedMessages
+                ? "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
+                : "hover:bg-surface-100 dark:hover:bg-surface-800 text-surface-500 hover:text-surface-700 dark:hover:text-surface-300"
+            )}
+            title="Pinned messages"
+          >
+            <Pin className="w-5 h-5" />
+            {pinnedMessagesCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary-500 text-white text-xs flex items-center justify-center font-medium">
+                {pinnedMessagesCount > 9 ? "9+" : pinnedMessagesCount}
+              </span>
+            )}
+          </button>
+        )}
         <button
           onClick={onToggleSearch}
           className={cn(
@@ -92,14 +118,14 @@ export function ChatRoomHeader({
         >
           <Search className="w-5 h-5" />
         </button>
-        <button 
+        <button
           onClick={() => toast.info("Voice call feature - Coming soon!")}
           className="w-9 h-9 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 flex items-center justify-center text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 transition-colors"
           title="Voice call"
         >
           <Phone className="w-5 h-5" />
         </button>
-        <button 
+        <button
           onClick={() => toast.info("Video call feature - Coming soon!")}
           className="w-9 h-9 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 flex items-center justify-center text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 transition-colors"
           title="Video call"
@@ -117,8 +143,8 @@ export function ChatRoomHeader({
         >
           <Info className="w-5 h-5" />
         </button>
-        <RoomMenu 
-          roomId={roomData?.id || ""} 
+        <RoomMenu
+          roomId={roomData?.id || ""}
           isGroup={isGroup}
           isRoomAdmin={isRoomAdmin}
           onViewMembers={onToggleInfo}
@@ -128,4 +154,3 @@ export function ChatRoomHeader({
     </header>
   );
 }
-

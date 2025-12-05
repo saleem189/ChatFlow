@@ -4,7 +4,19 @@
 // Type definitions for services in the DI container
 // Ensures type safety when using getService()
 
-import type { Room, Message } from '@prisma/client';
+import type { Message } from '@prisma/client';
+
+// Room type definition (local since Prisma may not export it)
+interface Room {
+  id: string;
+  name: string;
+  description: string | null;
+  avatar: string | null;
+  isGroup: boolean;
+  ownerId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /**
  * Room with messages and participants
