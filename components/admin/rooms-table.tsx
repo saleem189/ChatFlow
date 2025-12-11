@@ -178,10 +178,10 @@ export function RoomsTable({ initialRooms }: RoomsTableProps) {
                   <div className="flex items-center gap-3">
                     <div
                       className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold",
+                        "w-10 h-10 rounded-full flex items-center justify-center text-primary-foreground font-semibold",
                         room.isGroup
-                          ? "bg-gradient-to-br from-accent-400 to-pink-500"
-                          : "bg-gradient-to-br from-primary-400 to-blue-500"
+                          ? "bg-gradient-to-br from-accent to-accent/70"
+                          : "bg-gradient-to-br from-primary to-accent"
                       )}
                     >
                       {room.isGroup ? <Hash className="w-5 h-5" /> : getInitials(room.name)}

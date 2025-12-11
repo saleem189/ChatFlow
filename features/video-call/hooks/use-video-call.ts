@@ -63,6 +63,8 @@ export interface UseVideoCallReturn {
   toggleVideo: () => void;
   startScreenShare: () => Promise<void>;
   stopScreenShare: () => void;
+  toggleHandRaise: () => void;
+  sendReaction: (emoji: string) => void;
   
   // Media streams
   localStream: MediaStream | null;
@@ -72,6 +74,7 @@ export interface UseVideoCallReturn {
   isMuted: boolean;
   hasVideo: boolean;
   isScreenSharing: boolean;
+  isHandRaised: boolean;
 }
 
 /**
@@ -240,6 +243,7 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
           isMuted: false,
           isVideoOn: true,
           isScreenSharing: false,
+          handRaised: false,
           joinedAt: new Date(),
         };
         participantsRef.current.set(data.participantId, participant);
@@ -283,6 +287,25 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
       }
     };
     
+    // Hand raise handler
+    const handleHandRaise = (data: { callId: string; userId: string; userName: string; isRaised: boolean }) => {
+      if (callIdRef.current === data.callId && activeCall) {
+        const participant = participantsRef.current.get(data.userId);
+        if (participant) {
+          participant.handRaised = data.isRaised;
+          participant.handRaisedAt = data.isRaised ? new Date() : undefined;
+          updateActiveCall();
+          
+          // Show toast notification (only for other participants)
+          if (data.userId !== currentUserId) {
+            if (data.isRaised) {
+              toast.info(`✋ ${data.userName} raised hand`);
+            }
+          }
+        }
+      }
+    };
+    
     // Register event listeners
     socket.on('incoming-call', handleIncomingCall);
     socket.on('call-accepted', handleCallAccepted);
@@ -293,6 +316,7 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
     socket.on('call-left', handleCallLeft);
     socket.on('call-participant-muted', handleParticipantMuted);
     socket.on('call-participant-video-toggled', handleVideoToggled);
+    socket.on('call-hand-raise', handleHandRaise);
     
     return () => {
       if (socket) {
@@ -305,9 +329,10 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
         socket.off('call-left', handleCallLeft);
         socket.off('call-participant-muted', handleParticipantMuted);
         socket.off('call-participant-video-toggled', handleVideoToggled);
+        socket.off('call-hand-raise', handleHandRaise);
       }
     };
-  }, [currentUserId, activeCall, mediaStream.stream, webrtcService, socket, isConnected, updateActiveCall, createPeerForParticipant, endCall]);
+  }, [currentUserId, currentUserName, activeCall, mediaStream.stream, webrtcService, socket, isConnected, updateActiveCall, createPeerForParticipant, endCall]);
   
   /**
    * Initiate a call
@@ -358,10 +383,11 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
           id: currentUserId,
           userId: currentUserId,
           name: currentUserName,
-          avatar: currentUserAvatar,
+          avatar: currentUserAvatar || undefined,
           isMuted: false,
           isVideoOn: callType === 'video',
           isScreenSharing: false,
+          handRaised: false,
           joinedAt: new Date(),
         };
         participantsRef.current.set(currentUserId, currentParticipant);
@@ -427,6 +453,7 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
         isMuted: false,
         isVideoOn: incomingCall.callType === 'video',
         isScreenSharing: false,
+        handRaised: false,
         joinedAt: new Date(),
       };
       participantsRef.current.set(currentUserId, currentParticipant);
@@ -437,10 +464,11 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
         id: incomingCall.from,
         userId: incomingCall.from,
         name: incomingCall.fromName,
-        avatar: incomingCall.fromAvatar,
+        avatar: incomingCall.fromAvatar || undefined,
         isMuted: false,
         isVideoOn: incomingCall.callType === 'video',
         isScreenSharing: false,
+        handRaised: false,
         joinedAt: new Date(),
       };
       participantsRef.current.set(incomingCall.from, callerParticipant);
@@ -480,12 +508,70 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
    * Join an existing call
    */
   const joinCall = useCallback(
-    async (callId: string, roomId: string) => {
-      // Similar to acceptCall but for joining group calls
-      // Implementation depends on server-side logic
-      toast.info('Join call functionality coming soon');
+    async (callId: string, roomId: string, callType: CallType = 'video') => {
+      try {
+        setCallStatus('initiating');
+        
+        // Get media stream
+        const stream = await mediaStream.startStream({
+          video: callType === 'video',
+          audio: true,
+        });
+        
+        if (!stream) {
+          throw new Error('Failed to access media devices');
+        }
+        
+        // Set call ID
+        callIdRef.current = callId;
+        
+        // Emit join event to server
+        if (socket && isConnected) {
+          socket.emit('call-join', {
+            callId,
+            roomId,
+          });
+        }
+        
+        // Create active call
+        const newCall: ActiveCall = {
+          callId,
+          roomId,
+          callType,
+          participants: new Map(),
+          remoteStreams: new Map(),
+          isMuted: false,
+          hasVideo: callType === 'video',
+          isScreenSharing: false,
+        };
+        
+        // Add current user as participant
+        const currentParticipant: VideoCallParticipant = {
+          id: currentUserId,
+          userId: currentUserId,
+          name: currentUserName,
+          avatar: currentUserAvatar || undefined,
+          isMuted: false,
+          isVideoOn: callType === 'video',
+          isScreenSharing: false,
+          handRaised: false,
+          joinedAt: new Date(),
+        };
+        participantsRef.current.set(currentUserId, currentParticipant);
+        newCall.participants.set(currentUserId, currentParticipant);
+        
+        setActiveCall(newCall);
+        setCallStatus('active');
+        
+        toast.success('Joined call successfully');
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error('Failed to join call');
+        toast.error(err.message);
+        setCallStatus('idle');
+        mediaStream.stopStream();
+      }
     },
-    []
+    [currentUserId, currentUserName, currentUserAvatar, mediaStream, socket, isConnected]
   );
   
   /**
@@ -576,7 +662,62 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
         isSharing: false,
       });
     }
-  }, [activeCall, mediaStream]);
+  }, [activeCall, mediaStream, socket, isConnected]);
+  
+  /**
+   * Toggle hand raise
+   */
+  const toggleHandRaise = useCallback(() => {
+    if (!activeCall || !socket || !isConnected || !callIdRef.current) return;
+    
+    const currentParticipant = participantsRef.current.get(currentUserId);
+    if (!currentParticipant) return;
+    
+    const newHandRaisedState = !currentParticipant.handRaised;
+    
+    // Update local participant state
+    const updatedParticipant: VideoCallParticipant = {
+      ...currentParticipant,
+      handRaised: newHandRaisedState,
+      handRaisedAt: newHandRaisedState ? new Date() : undefined,
+    };
+    
+    participantsRef.current.set(currentUserId, updatedParticipant);
+    updateActiveCall();
+    
+    // Broadcast to other participants
+    socket.emit('call-hand-raise', {
+      callId: callIdRef.current,
+      roomId: activeCall.roomId,
+      userId: currentUserId,
+      userName: currentUserName,
+      isRaised: newHandRaisedState,
+    });
+    
+    // Show toast
+    if (newHandRaisedState) {
+      toast.success('Hand raised');
+    } else {
+      toast.info('Hand lowered');
+    }
+  }, [activeCall, socket, isConnected, currentUserId, currentUserName, updateActiveCall]);
+  
+  /**
+   * Send reaction emoji
+   */
+  const sendReaction = useCallback((emoji: string) => {
+    if (!activeCall || !socket || !isConnected || !callIdRef.current) return;
+    
+    // Broadcast reaction to all participants
+    socket.emit('call-reaction', {
+      callId: callIdRef.current,
+      roomId: activeCall.roomId,
+      userId: currentUserId,
+      userName: currentUserName,
+      emoji,
+      timestamp: Date.now(),
+    });
+  }, [activeCall, socket, isConnected, currentUserId, currentUserName]);
   
   return {
     callStatus,
@@ -592,11 +733,14 @@ export function useVideoCall(options: UseVideoCallOptions): UseVideoCallReturn {
     toggleVideo,
     startScreenShare,
     stopScreenShare,
+    toggleHandRaise,
+    sendReaction,
     localStream: mediaStream.stream,
     remoteStreams: remoteStreamsRef.current,
     isMuted: !mediaStream.isAudioEnabled,
     hasVideo: mediaStream.isVideoEnabled,
     isScreenSharing: mediaStream.isScreenSharing,
+    isHandRaised: participantsRef.current.get(currentUserId)?.handRaised ?? false,
   };
 }
 

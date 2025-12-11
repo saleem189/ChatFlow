@@ -47,8 +47,8 @@ export function AdminSidebar({ user }: AdminSidebarProps) {
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-destructive to-orange-500 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-destructive to-destructive/70 flex items-center justify-center">
+            <Shield className="w-5 h-5 text-destructive-foreground" />
           </div>
           <div>
             <h1 className="font-bold text-lg">Admin Panel</h1>

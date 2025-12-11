@@ -6,7 +6,7 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import { Mic, MicOff, Video, VideoOff, User } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, User, Hand } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { cn, getInitials } from "@/lib/utils";
 import type { VideoCallParticipant } from "../types";
@@ -73,8 +73,8 @@ export function ParticipantVideo({
   return (
     <div
       className={cn(
-        "relative w-full h-full rounded-lg overflow-hidden bg-surface-900",
-        isActiveSpeaker && "ring-2 ring-primary-500 ring-offset-2",
+        "relative w-full h-full rounded-lg overflow-hidden bg-muted",
+        isActiveSpeaker && "ring-2 ring-primary ring-offset-2 ring-offset-background",
         className
       )}
     >
@@ -92,10 +92,10 @@ export function ParticipantVideo({
 
       {/* Avatar/Placeholder when video is off */}
       {(!isVideoVisible || !stream) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary-400 to-blue-500">
-          <Avatar className="w-20 h-20 border-4 border-white/20">
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary to-accent">
+          <Avatar className="w-20 h-20 border-4 border-background/20">
             <AvatarImage src={participant.avatar || undefined} alt={participant.name} />
-            <AvatarFallback className="bg-white/20 text-white text-2xl font-bold">
+            <AvatarFallback className="!bg-gradient-to-br !from-primary !to-accent !text-primary-foreground text-2xl font-semibold">
               {getInitials(participant.name)}
             </AvatarFallback>
           </Avatar>
@@ -109,6 +109,9 @@ export function ParticipantVideo({
             {participant.name}
             {isLocal && " (You)"}
           </span>
+          {participant.handRaised && (
+            <Hand className="w-4 h-4 text-yellow-400 animate-pulse" />
+          )}
         </div>
       </div>
 
@@ -116,29 +119,40 @@ export function ParticipantVideo({
       <div className="absolute top-2 right-2 flex items-center gap-2">
         {/* Mute Indicator */}
         {participant.isMuted ? (
-          <div className="w-8 h-8 rounded-full bg-red-500/80 flex items-center justify-center">
-            <MicOff className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 rounded-full bg-destructive/80 backdrop-blur-sm flex items-center justify-center shadow-sm">
+            <MicOff className="w-4 h-4 text-destructive-foreground" />
           </div>
         ) : (
-          <div className="w-8 h-8 rounded-full bg-green-500/80 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-full bg-green-500/80 backdrop-blur-sm flex items-center justify-center shadow-sm">
             <Mic className="w-4 h-4 text-white" />
           </div>
         )}
 
         {/* Video Off Indicator */}
         {!participant.isVideoOn && (
-          <div className="w-8 h-8 rounded-full bg-surface-800/80 flex items-center justify-center">
-            <VideoOff className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 rounded-full bg-muted/80 backdrop-blur-sm flex items-center justify-center shadow-sm">
+            <VideoOff className="w-4 h-4 text-muted-foreground" />
           </div>
         )}
       </div>
 
-      {/* Screen Share Indicator */}
-      {participant.isScreenSharing && (
-        <div className="absolute top-2 left-2 px-2 py-1 rounded bg-primary-500/80 text-white text-xs font-medium">
-          Sharing Screen
-        </div>
-      )}
+      {/* Top-Left Indicators (Screen Share & Hand Raised) */}
+      <div className="absolute top-2 left-2 flex flex-col gap-2">
+        {/* Screen Share Indicator */}
+        {participant.isScreenSharing && (
+          <div className="px-2 py-1 rounded bg-primary/80 backdrop-blur-sm text-primary-foreground text-xs font-medium shadow-sm">
+            Sharing Screen
+          </div>
+        )}
+
+        {/* Hand Raised Indicator */}
+        {participant.handRaised && (
+          <div className="px-3 py-1.5 rounded-full bg-yellow-500/90 backdrop-blur-sm text-white text-xs font-semibold shadow-lg flex items-center gap-1.5 animate-pulse">
+            <Hand className="w-4 h-4" />
+            Hand Raised
+          </div>
+        )}
+      </div>
     </div>
   );
 }

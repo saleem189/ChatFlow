@@ -54,20 +54,29 @@ export function ChatRoomHeader({
   const onlineParticipants = participants.filter((p) => ('status' in p && p.status === "online") || false);
   const { initiateCall, activeCall } = useVideoCallContext();
   
-  const handleVideoCall = () => {
+  const handleVideoCall = async () => {
     if (!roomData?.id) return;
-    const targetUserId = !isGroup && participants.length === 2 
-      ? participants.find(p => p.id !== participants[0]?.id)?.id 
-      : undefined;
-    initiateCall(roomData.id, 'video', targetUserId);
+    
+    try {
+      // Just open the call page - it will handle initiating the call
+      const callId = `${roomData.id}-${Date.now()}`;
+      window.open(`/call/${callId}?type=video&room=${roomData.id}`, '_blank');
+      toast.success('Call window opened');
+    } catch (error) {
+      toast.error('Failed to start call');
+    }
   };
   
-  const handleAudioCall = () => {
+  const handleAudioCall = async () => {
     if (!roomData?.id) return;
-    const targetUserId = !isGroup && participants.length === 2 
-      ? participants.find(p => p.id !== participants[0]?.id)?.id 
-      : undefined;
-    initiateCall(roomData.id, 'audio', targetUserId);
+    
+    try {
+      const callId = `${roomData.id}-${Date.now()}`;
+      window.open(`/call/${callId}?type=audio&room=${roomData.id}`, '_blank');
+      toast.success('Call window opened');
+    } catch (error) {
+      toast.error('Failed to start call');
+    }
   };
 
   return (

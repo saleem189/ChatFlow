@@ -9,10 +9,12 @@ export interface VideoCallParticipant {
     id: string;
     userId: string;
     name: string;
-    avatar?: string;
+    avatar?: string | null;
     isMuted: boolean;
     isVideoOn: boolean;
     isScreenSharing: boolean;
+    handRaised: boolean;
+    handRaisedAt?: Date;
     joinedAt: Date;
 }
 
@@ -45,6 +47,8 @@ export type VideoCallEventType =
     | 'video-disabled'
     | 'screen-share-started'
     | 'screen-share-stopped'
+    | 'hand-raised'
+    | 'hand-lowered'
     | 'recording-started'
     | 'recording-stopped'
     | 'call-ended';

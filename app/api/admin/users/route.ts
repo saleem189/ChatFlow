@@ -12,6 +12,8 @@ import { handleError, UnauthorizedError, ForbiddenError } from "@/lib/errors";
 import { getService } from "@/lib/di";
 import { AdminService } from "@/lib/services/admin.service";
 import { CACHE_HEADERS } from "@/lib/utils/cache-headers";
+import { validateRequest } from "@/lib/middleware/validate-request";
+import { updateUserSchema } from "@/lib/validations";
 
 // Services are resolved asynchronously inside route handlers
 
@@ -74,8 +76,12 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     // Get service from DI container (async)
     const adminService = await getService<AdminService>('adminService');
 
-    const body = await request.json();
-    const { userId, name, email, role, status } = body;
+    // Validate request body
+    const validation = await validateRequest(request, updateUserSchema);
+    if (!validation.success) {
+      return validation.response;
+    }
+    const { userId, name, email, role, status } = validation.data;
 
     const user = await adminService.updateUser(userId, { name, email, role, status });
     return NextResponse.json({ user });

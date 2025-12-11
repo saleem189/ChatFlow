@@ -40,7 +40,7 @@ export function PinnedMessagesPanel({
 
     return (
         <div className={cn(
-            "bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800",
+            "bg-amber-500/10 border-b border-amber-500/30",
             "transition-all duration-300"
         )}>
             {/* Header */}
@@ -48,20 +48,20 @@ export function PinnedMessagesPanel({
                 onClick={() => setIsExpanded(!isExpanded)}
                 className={cn(
                     "w-full flex items-center justify-between px-4 py-2",
-                    "hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                    "hover:bg-amber-500/20 transition-colors"
                 )}
             >
                 <div className="flex items-center gap-2">
-                    <Pin className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    <Pin className="w-4 h-4 text-amber-600" />
+                    <span className="text-sm font-medium text-amber-900 dark:text-amber-100">
                         {pinnedMessages.length} Pinned Message{pinnedMessages.length !== 1 ? 's' : ''}
                     </span>
                 </div>
                 {pinnedMessages.length > 1 && (
                     isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <ChevronUp className="w-4 h-4 text-amber-600" />
                     ) : (
-                        <ChevronDown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <ChevronDown className="w-4 h-4 text-amber-600" />
                     )
                 )}
             </button>
@@ -76,8 +76,8 @@ export function PinnedMessagesPanel({
                         key={pin.id}
                         className={cn(
                             "flex items-start gap-3 px-4 py-2",
-                            "hover:bg-amber-100/50 dark:hover:bg-amber-900/20 transition-colors",
-                            "border-t border-amber-200/50 dark:border-amber-800/50 first:border-t-0"
+                            "hover:bg-amber-500/10 transition-colors",
+                            "border-t border-amber-500/20 first:border-t-0"
                         )}
                     >
                         {/* Avatar */}

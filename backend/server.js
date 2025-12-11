@@ -1186,7 +1186,7 @@ io.on("connection", (socket) => {
   });
 
   // Disconnect
-  socket.on("disconnect", async (reason) => {
+  const handleDisconnect = async (reason) => {
     logger.log(`❌ Disconnected: ${socket.id} (${reason})`);
     removeOnlineUser(socket.id);
     socketLastRequest.delete(socket.id); // Clean up debounce tracking
@@ -1259,7 +1259,22 @@ io.on("connection", (socket) => {
         userId: socket.userId || 'unknown',
       },
     });
-  });
+
+    // =====================
+    // CLEANUP: Remove ALL event listeners to prevent memory leaks
+    // =====================
+    // This is critical for preventing memory leaks when sockets disconnect
+    // Socket.io keeps references to event handlers until explicitly removed
+    logger.log(`🧹 Cleaning up event listeners for socket ${socket.id}`);
+    
+    // Note: We can't remove inline anonymous functions, but socket.removeAllListeners()
+    // will remove all event listeners for this socket
+    socket.removeAllListeners();
+    
+    logger.log(`✅ All event listeners cleaned up for socket ${socket.id}`);
+  };
+
+  socket.on("disconnect", handleDisconnect);
 });
 
 // Start server with Redis adapter initialization

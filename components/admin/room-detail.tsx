@@ -128,11 +128,12 @@ export function RoomDetail({ room: initialRoom }: RoomDetailProps) {
           <div className="bg-card rounded-2xl p-6 border border-border">
             <div className="flex items-start gap-4 mb-6">
               <div
-                className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white text-2xl font-bold ${
+                className={cn(
+                  "w-16 h-16 rounded-2xl flex items-center justify-center text-primary-foreground text-2xl font-semibold",
                   room.isGroup
-                    ? "bg-gradient-to-br from-accent-400 to-pink-500"
-                    : "bg-gradient-to-br from-primary-400 to-blue-500"
-                }`}
+                    ? "bg-gradient-to-br from-accent to-accent/70"
+                    : "bg-gradient-to-br from-primary to-accent"
+                )}
               >
                 {room.isGroup ? <Hash className="w-8 h-8" /> : getInitials(room.name)}
               </div>

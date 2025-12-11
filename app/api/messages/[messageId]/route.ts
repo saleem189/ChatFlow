@@ -8,6 +8,8 @@ import { authOptions } from "@/lib/auth";
 import { handleError, UnauthorizedError } from "@/lib/errors";
 import { getService } from "@/lib/di";
 import { MessageService } from "@/lib/services/message.service";
+import { validateRequest } from "@/lib/middleware/validate-request";
+import { updateMessageSchema } from "@/lib/validations";
 
 interface RouteParams {
   params: Promise<{
@@ -33,7 +35,13 @@ export async function PATCH(
     const messageService = await getService<MessageService>('messageService');
 
     const { messageId } = await params;
-    const { content } = await request.json();
+    
+    // Validate request body
+    const validation = await validateRequest(request, updateMessageSchema);
+    if (!validation.success) {
+      return validation.response;
+    }
+    const { content } = validation.data;
 
     const updatedMessage = await messageService.editMessage(
       messageId,

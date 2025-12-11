@@ -104,3 +104,75 @@ export const createRoomSchema = z.object({
 
 export type CreateRoomFormData = z.infer<typeof createRoomSchema>;
 
+/**
+ * Update message validation schema (for editing)
+ */
+export const updateMessageSchema = z.object({
+  content: z
+    .string()
+    .min(1, "Message content cannot be empty")
+    .max(2000, "Message must be less than 2000 characters")
+    .transform((val) => val.trim()),
+});
+
+export type UpdateMessageFormData = z.infer<typeof updateMessageSchema>;
+
+/**
+ * Update room validation schema
+ */
+export const updateRoomSchema = z.object({
+  name: z
+    .string()
+    .min(2, "Room name must be at least 2 characters")
+    .max(50, "Room name must be less than 50 characters")
+    .optional(),
+  description: z
+    .string()
+    .max(200, "Description must be less than 200 characters")
+    .optional(),
+  avatar: z.string().url("Avatar must be a valid URL").optional().nullable(),
+});
+
+export type UpdateRoomFormData = z.infer<typeof updateRoomSchema>;
+
+/**
+ * Add room members validation schema
+ */
+export const addRoomMembersSchema = z.object({
+  userIds: z
+    .array(z.string())
+    .min(1, "Select at least one user to add")
+    .max(50, "Cannot add more than 50 users at once"),
+});
+
+export type AddRoomMembersFormData = z.infer<typeof addRoomMembersSchema>;
+
+/**
+ * Update user validation schema (admin)
+ */
+export const updateUserSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  name: z
+    .string()
+    .min(2, "Name must be at least 2 characters")
+    .max(50, "Name must be less than 50 characters")
+    .optional(),
+  email: z.string().email("Please enter a valid email address").optional(),
+  role: z.enum(["USER", "ADMIN"], {
+    errorMap: () => ({ message: "Role must be either USER or ADMIN" }),
+  }).optional(),
+  status: z.enum(["ACTIVE", "BANNED"], {
+    errorMap: () => ({ message: "Status must be either ACTIVE or BANNED" }),
+  }).optional(),
+}).refine(
+  (data) => {
+    // At least one field must be provided
+    return data.name || data.email || data.role || data.status;
+  },
+  {
+    message: "At least one field must be provided for update",
+  }
+);
+
+export type UpdateUserFormData = z.infer<typeof updateUserSchema>;
+

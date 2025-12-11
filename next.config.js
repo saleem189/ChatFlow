@@ -11,11 +11,6 @@ const nextConfig = {
   // Enable React Strict Mode for better development experience
   reactStrictMode: true,
 
-  // Optimize CSS loading to reduce preload warnings
-  experimental: {
-    optimizeCss: true, // Optimize CSS loading
-  },
-
   // Turbopack configuration (Next.js 16 uses Turbopack by default)
   // Turbopack automatically handles Node.js module exclusion for client bundles
   // No explicit configuration needed - Turbopack handles this automatically

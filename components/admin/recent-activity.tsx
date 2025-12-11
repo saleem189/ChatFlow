@@ -91,11 +91,11 @@ export function RecentActivity({ recentUsers }: RecentActivityProps) {
   const getActivityColor = (type: string) => {
     switch (type) {
       case "message":
-        return "bg-blue-500";
+        return "bg-primary";
       case "user_joined":
-        return "bg-green-500";
+        return "bg-green-500"; // Semantic color for success/online
       case "room_created":
-        return "bg-purple-500";
+        return "bg-accent";
       default:
         return "bg-muted";
     }
@@ -113,7 +113,14 @@ export function RecentActivity({ recentUsers }: RecentActivityProps) {
           >
             {/* Icon */}
             <div
-              className={`w-8 h-8 rounded-full ${getActivityColor(activity.type)} flex items-center justify-center text-white flex-shrink-0`}
+              className={cn(
+                "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                getActivityColor(activity.type),
+                activity.type === "message" ? "text-primary-foreground" :
+                activity.type === "user_joined" ? "text-white" :
+                activity.type === "room_created" ? "text-accent-foreground" :
+                "text-muted-foreground"
+              )}
             >
               {getActivityIcon(activity.type)}
             </div>

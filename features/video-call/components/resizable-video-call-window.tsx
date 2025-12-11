@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 
 interface ResizableVideoCallWindowProps {
   children: React.ReactNode;
-  title: string;
+  title: string | React.ReactNode;
   onClose: () => void;
   onMinimize?: () => void;
   defaultWidth?: number;
@@ -213,24 +213,24 @@ export function ResizableVideoCallWindow({
         {/* Minimized Bar (like Teams/Zoom) */}
         <div
           className={cn(
-            "fixed bottom-0 left-0 right-0 z-[100] bg-surface-800 border-t border-surface-700",
+            "fixed bottom-0 left-0 right-0 z-[100] bg-card border-t border-border",
             "flex items-center justify-between px-4 py-3 shadow-lg",
             className
           )}
         >
           <div
-            className="flex items-center gap-3 cursor-pointer hover:bg-surface-700/50 px-3 py-2 rounded transition-colors flex-1"
+            className="flex items-center gap-3 cursor-pointer hover:bg-accent px-3 py-2 rounded transition-colors flex-1"
             onClick={() => setIsMinimized(false)}
           >
             <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium text-white">{title}</span>
-            <span className="text-xs text-surface-400">Click to restore</span>
+            <span className="text-sm font-medium text-foreground">{title}</span>
+            <span className="text-xs text-muted-foreground">Click to restore</span>
           </div>
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
-              className="w-8 h-8 text-white hover:bg-surface-700"
+              className="w-8 h-8"
               onClick={() => setIsMinimized(false)}
               title="Restore"
             >
@@ -239,7 +239,7 @@ export function ResizableVideoCallWindow({
             <Button
               variant="ghost"
               size="icon"
-              className="w-8 h-8 text-white hover:bg-red-600"
+              className="w-8 h-8 hover:bg-destructive hover:text-destructive-foreground"
               onClick={onClose}
               title="End Call"
             >
@@ -265,10 +265,10 @@ export function ResizableVideoCallWindow({
       <div
         ref={windowRef}
         className={cn(
-          "fixed z-[100] bg-surface-900 rounded-lg shadow-2xl border border-surface-700",
-          "flex flex-col overflow-hidden",
-          isDragging && "cursor-move",
-          isResizing && "cursor-resize",
+          "fixed z-[100] bg-background rounded-lg shadow-2xl border border-border",
+          "flex flex-col overflow-hidden group",
+          isDragging && "!cursor-grabbing",
+          isResizing && "select-none",
           className
         )}
         style={{
@@ -282,22 +282,27 @@ export function ResizableVideoCallWindow({
       {/* Header - Draggable */}
       <div
         className={cn(
-          "flex items-center justify-between px-4 py-3 bg-surface-800/90 backdrop-blur-sm border-b border-surface-700",
-          "cursor-move select-none",
-          !isMaximized && "hover:bg-surface-800"
+          "flex items-center justify-between px-4 py-3 bg-muted/90 backdrop-blur-sm border-b border-border",
+          "select-none transition-colors",
+          isMaximized ? "cursor-default" : "cursor-grab hover:bg-muted",
+          isDragging && "!cursor-grabbing"
         )}
         onMouseDown={handleDragStart}
+        title={isMaximized ? undefined : "Drag to move window"}
       >
-        <div className="flex items-center gap-3 flex-1">
-          <GripVertical className="w-4 h-4 text-surface-400" />
-          <span className="text-sm font-medium text-white">{title}</span>
+        <div className="flex items-center gap-3 flex-1 pointer-events-none">
+          <GripVertical className={cn(
+            "w-4 h-4 transition-colors",
+            isMaximized ? "text-muted-foreground/50" : "text-muted-foreground group-hover:text-foreground"
+          )} />
+          <span className="text-sm font-medium text-foreground">{title}</span>
         </div>
         <div className="flex items-center gap-1">
           {onMinimize && (
             <Button
               variant="ghost"
               size="icon"
-              className="w-8 h-8 text-white hover:bg-surface-700"
+              className="w-8 h-8"
               onClick={handleMinimize}
               title="Minimize"
             >
@@ -307,7 +312,7 @@ export function ResizableVideoCallWindow({
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 text-white hover:bg-surface-700"
+            className="w-8 h-8"
             onClick={handleMaximize}
             title={isMaximized ? "Restore" : "Maximize"}
           >
@@ -316,7 +321,7 @@ export function ResizableVideoCallWindow({
           <Button
             variant="ghost"
             size="icon"
-            className="w-8 h-8 text-white hover:bg-red-600"
+            className="w-8 h-8 hover:bg-destructive hover:text-destructive-foreground"
             onClick={onClose}
             title="Close"
           >
@@ -330,51 +335,59 @@ export function ResizableVideoCallWindow({
         {children}
       </div>
 
-      {/* Resize Handles */}
+      {/* Resize Handles - Enhanced for visibility and usability */}
       {!isMaximized && (
         <>
-          {/* Corner handles - visible on hover */}
+          {/* Corner handles - LARGER and more visible with proper cursors */}
           <div
-            className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10 group"
+            className="absolute top-0 left-0 w-8 h-8 cursor-nwse-resize z-10 group/handle transition-transform hover:scale-110"
             onMouseDown={(e) => handleResizeStart(e, 'top-left')}
+            title="Resize top-left corner"
           >
-            <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-surface-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-primary/30 group-hover/handle:border-primary transition-colors" />
           </div>
           <div
-            className="absolute top-0 right-0 w-4 h-4 cursor-nesw-resize z-10 group"
+            className="absolute top-0 right-0 w-8 h-8 cursor-nesw-resize z-10 group/handle transition-transform hover:scale-110"
             onMouseDown={(e) => handleResizeStart(e, 'top-right')}
+            title="Resize top-right corner"
           >
-            <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-surface-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-primary/30 group-hover/handle:border-primary transition-colors" />
           </div>
           <div
-            className="absolute bottom-0 left-0 w-4 h-4 cursor-nesw-resize z-10 group"
+            className="absolute bottom-0 left-0 w-8 h-8 cursor-nesw-resize z-10 group/handle transition-transform hover:scale-110"
             onMouseDown={(e) => handleResizeStart(e, 'bottom-left')}
+            title="Resize bottom-left corner"
           >
-            <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-surface-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-primary/30 group-hover/handle:border-primary transition-colors" />
           </div>
           <div
-            className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-10 group"
+            className="absolute bottom-0 right-0 w-8 h-8 cursor-nwse-resize z-10 group/handle transition-transform hover:scale-110"
             onMouseDown={(e) => handleResizeStart(e, 'bottom-right')}
+            title="Resize bottom-right corner"
           >
-            <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-surface-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-primary/30 group-hover/handle:border-primary transition-colors" />
           </div>
           
-          {/* Edge handles */}
+          {/* Edge handles - WIDER/TALLER for easier grabbing with proper cursors */}
           <div
-            className="absolute top-0 left-4 right-4 h-2 cursor-ns-resize z-10 hover:bg-surface-700/20 transition-colors"
+            className="absolute top-0 left-8 right-8 h-3 cursor-ns-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors"
             onMouseDown={(e) => handleResizeStart(e, 'top')}
+            title="Drag to resize vertically"
           />
           <div
-            className="absolute bottom-0 left-4 right-4 h-2 cursor-ns-resize z-10 hover:bg-surface-700/20 transition-colors"
+            className="absolute bottom-0 left-8 right-8 h-3 cursor-ns-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors"
             onMouseDown={(e) => handleResizeStart(e, 'bottom')}
+            title="Drag to resize vertically"
           />
           <div
-            className="absolute left-0 top-4 bottom-4 w-2 cursor-ew-resize z-10 hover:bg-surface-700/20 transition-colors"
+            className="absolute left-0 top-8 bottom-8 w-3 cursor-ew-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors"
             onMouseDown={(e) => handleResizeStart(e, 'left')}
+            title="Drag to resize horizontally"
           />
           <div
-            className="absolute right-0 top-4 bottom-4 w-2 cursor-ew-resize z-10 hover:bg-surface-700/20 transition-colors"
+            className="absolute right-0 top-8 bottom-8 w-3 cursor-ew-resize z-10 hover:bg-primary/20 active:bg-primary/30 transition-colors"
             onMouseDown={(e) => handleResizeStart(e, 'right')}
+            title="Drag to resize horizontally"
           />
         </>
       )}

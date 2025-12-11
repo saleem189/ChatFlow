@@ -16,7 +16,7 @@ import { ReactNode } from "react";
 import { ReactQueryProvider } from "@/lib/react-query-provider";
 import { KeyboardShortcuts } from "@/components/keyboard-shortcuts";
 import { RouteChangeHandler } from "@/components/route-change-handler";
-import { VideoCallProvider, VideoCallModal, IncomingCallDialog } from "@/features/video-call";
+import { VideoCallProvider, IncomingCallDialog } from "@/features/video-call";
 import { ThemeProvider, StyleProvider } from "@/lib/design-system/providers";
 
 interface ProvidersProps {
@@ -43,8 +43,7 @@ export function Providers({ children }: ProvidersProps) {
                 <KeyboardShortcuts />
                 <RouteChangeHandler />
                 {children}
-                {/* Video Call Components */}
-                <VideoCallModal />
+                {/* Incoming Call Dialog (shows notification, opens new tab) */}
                 <IncomingCallDialog />
                 <Toaster 
                   position="top-right" 

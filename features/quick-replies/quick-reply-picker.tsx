@@ -79,8 +79,8 @@ export function QuickReplyPicker({
                 className={cn(
                     "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
                     isOpen
-                        ? "bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400"
-                        : "hover:bg-surface-200 dark:hover:bg-surface-700 text-surface-400 hover:text-surface-600 dark:hover:text-surface-300"
+                        ? "bg-primary/10 text-primary"
+                        : "hover:bg-accent text-muted-foreground hover:text-accent-foreground"
                 )}
                 title="Quick replies"
             >
@@ -97,8 +97,8 @@ export function QuickReplyPicker({
                     <div 
                         className={cn(
                             "fixed w-80",
-                            "bg-white dark:bg-surface-900 rounded-2xl shadow-2xl",
-                            "border border-surface-200 dark:border-surface-800",
+                            "bg-popover rounded-2xl shadow-2xl",
+                            "border border-border",
                             "z-[100] animate-scale-in overflow-hidden"
                         )}
                         style={{
@@ -107,9 +107,9 @@ export function QuickReplyPicker({
                         }}
                     >
                         {/* Search */}
-                        <div className="p-3 border-b border-surface-200 dark:border-surface-800">
+                        <div className="p-3 border-b border-border">
                             <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400" />
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <input
                                     type="text"
                                     value={searchQuery}
@@ -117,9 +117,9 @@ export function QuickReplyPicker({
                                     placeholder="Search templates..."
                                     className={cn(
                                         "w-full pl-9 pr-4 py-2 rounded-lg text-sm",
-                                        "bg-surface-100 dark:bg-surface-800",
-                                        "border-0 focus:ring-2 focus:ring-primary-500/20",
-                                        "placeholder:text-surface-400"
+                                        "bg-muted text-foreground",
+                                        "border-0 focus:ring-2 focus:ring-ring",
+                                        "placeholder:text-muted-foreground"
                                     )}
                                 />
                             </div>
@@ -129,7 +129,7 @@ export function QuickReplyPicker({
                         <ScrollArea className="h-64 p-2">
                             {Object.entries(groupedTemplates).map(([category, items]) => (
                                 <div key={category} className="mb-3 last:mb-0">
-                                    <p className="text-xs font-semibold text-surface-500 px-2 py-1">
+                                    <p className="text-xs font-semibold text-muted-foreground px-2 py-1">
                                         {category}
                                     </p>
                                     {items.map((template) => (
@@ -138,20 +138,20 @@ export function QuickReplyPicker({
                                             onClick={() => handleSelect(template)}
                                             className={cn(
                                                 "w-full text-left px-3 py-2 rounded-lg",
-                                                "hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                                                "hover:bg-accent hover:text-accent-foreground transition-colors"
                                             )}
                                         >
                                             <div className="flex items-center justify-between mb-0.5">
-                                                <span className="text-sm font-medium text-surface-900 dark:text-white">
+                                                <span className="text-sm font-medium text-foreground">
                                                     {template.label}
                                                 </span>
                                                 {template.shortcut && (
-                                                    <span className="text-xs text-surface-400 font-mono">
+                                                    <span className="text-xs text-muted-foreground font-mono">
                                                         {template.shortcut}
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-surface-500 line-clamp-1">
+                                            <p className="text-xs text-muted-foreground line-clamp-1">
                                                 {template.content}
                                             </p>
                                         </button>
@@ -160,7 +160,7 @@ export function QuickReplyPicker({
                             ))}
 
                             {filteredTemplates.length === 0 && (
-                                <p className="text-center text-sm text-surface-500 py-4">
+                                <p className="text-center text-sm text-muted-foreground py-4">
                                     No templates found
                                 </p>
                             )}
@@ -168,7 +168,7 @@ export function QuickReplyPicker({
 
                         {/* Create New Button */}
                         {onCreateNew && (
-                            <div className="p-2 border-t border-surface-200 dark:border-surface-800">
+                            <div className="p-2 border-t border-border">
                                 <button
                                     onClick={() => {
                                         onCreateNew();
@@ -176,8 +176,8 @@ export function QuickReplyPicker({
                                     }}
                                     className={cn(
                                         "w-full flex items-center justify-center gap-2 py-2 rounded-lg",
-                                        "text-sm font-medium text-primary-600 dark:text-primary-400",
-                                        "hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors"
+                                        "text-sm font-medium text-primary",
+                                        "hover:bg-primary/10 transition-colors"
                                     )}
                                 >
                                     <Plus className="w-4 h-4" />

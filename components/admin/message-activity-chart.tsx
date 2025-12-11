@@ -108,6 +108,7 @@ export function MessageActivityChart() {
 
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={dataWithLive} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          {/* Note: Recharts requires hex colors for proper rendering */}
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-surface-700" />
           <XAxis
             dataKey="minute"

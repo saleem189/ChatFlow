@@ -39,6 +39,8 @@ export interface ServerToClientEvents {
   "call-participant-video-toggled": (data: { callId: string; participantId: string; hasVideo: boolean }) => void;
   "call-screen-share-started": (data: { callId: string; participantId: string }) => void;
   "call-screen-share-stopped": (data: { callId: string; participantId: string }) => void;
+  "call-hand-raise": (data: { callId: string; userId: string; userName: string; isRaised: boolean }) => void;
+  "call-reaction": (data: { userId: string; userName: string; emoji: string; timestamp: number }) => void;
   error: (message: string) => void;
 }
 
@@ -65,6 +67,8 @@ export interface ClientToServerEvents {
   "call-mute": (data: { callId: string; roomId: string; isMuted: boolean }) => void;
   "call-video-toggle": (data: { callId: string; roomId: string; hasVideo: boolean }) => void;
   "call-screen-share": (data: { callId: string; roomId: string; isSharing: boolean }) => void;
+  "call-hand-raise": (data: { callId: string; roomId: string; userId: string; userName: string; isRaised: boolean }) => void;
+  "call-reaction": (data: { callId: string; roomId: string; userId: string; userName: string; emoji: string; timestamp: number }) => void;
 }
 
 export interface MessagePayload {

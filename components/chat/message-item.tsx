@@ -164,7 +164,8 @@ export const MessageItem = memo(function MessageItem({
                         "w-8 h-8 rounded-lg",
                         "bg-card/90 backdrop-blur-sm",
                         "shadow-md border border-border",
-                        "hover:scale-110 active:scale-95"
+                        "hover:scale-110 active:scale-95",
+                        "text-foreground hover:text-primary"
                       )}
                     >
                       <Reply className="w-4 h-4" />

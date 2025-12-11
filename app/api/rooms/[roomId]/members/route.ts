@@ -8,6 +8,8 @@ import { authOptions } from "@/lib/auth";
 import { handleError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import { getService } from "@/lib/di";
 import { RoomService } from "@/lib/services/room.service";
+import { validateRequest } from "@/lib/middleware/validate-request";
+import { addRoomMembersSchema } from "@/lib/validations";
 
 // Services are resolved asynchronously inside route handlers
 
@@ -67,8 +69,13 @@ export async function POST(
     const roomService = await getService<RoomService>('roomService');
 
     const { roomId } = await params;
-    const body = await request.json();
-    const { userIds } = body;
+    
+    // Validate request body
+    const validation = await validateRequest(request, addRoomMembersSchema);
+    if (!validation.success) {
+      return validation.response;
+    }
+    const { userIds } = validation.data;
 
     const { added } = await roomService.addMembers(roomId, session.user.id, userIds);
     return NextResponse.json({
