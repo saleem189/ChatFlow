@@ -34,8 +34,8 @@ Synapse uses a **dual notification strategy**:
 flowchart TD
     Start([Message Created]) --> Service[MessageNotificationService<br/>sendPushNotifications]
     Service --> Check{Is user online?<br/>Socket.io connectedUsers Map}
-    Check -->|✅ ONLINE| Socket[Socket.io Broadcast<br/>(Instant)]
-    Check -->|❌ OFFLINE| Queue[Queue Push Notification<br/>(Background)]
+    Check -->|✅ ONLINE| Socket[Socket.io Broadcast<br/>Instant]
+    Check -->|❌ OFFLINE| Queue[Queue Push Notification<br/>Background]
     Socket --> Result1[User sees message<br/>immediately]
     Queue --> Worker[BullMQ Worker<br/>processes job]
     Worker --> Push[Web Push API<br/>sends notification]

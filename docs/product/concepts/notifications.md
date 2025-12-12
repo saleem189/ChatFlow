@@ -30,9 +30,9 @@ For users who are **offline** or have tab closed.
 
 ```mermaid
 flowchart TD
-    Start([Message Sent]) --> Check{Is user online?<br/>(Socket.io connected)}
-    Check -->|YES| WebSocket[WebSocket Broadcast<br/>(Instant)]
-    Check -->|NO| Queue[Queue Push Notification<br/>(Background)]
+    Start([Message Sent]) --> Check{Is user online?<br/>Socket.io connected}
+    Check -->|YES| WebSocket[WebSocket Broadcast<br/>Instant]
+    Check -->|NO| Queue[Queue Push Notification<br/>Background]
     WebSocket --> Result1[User sees<br/>in real-time]
     Queue --> Result2[Browser shows<br/>notification]
     

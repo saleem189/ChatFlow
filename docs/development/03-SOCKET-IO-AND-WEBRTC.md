@@ -469,9 +469,9 @@ sequenceDiagram
     Note over A: peer.on('signal', signal => {...})
     
     A->>SocketA: 4. Send offer
-    SocketA->>Server: webrtc-signal<br/>{ to: B, signal }
+    SocketA->>Server: webrtc-signal
     Server->>SocketB: Forward offer
-    SocketB->>B: 5. Receive offer<br/>socket.on('webrtc-signal')
+    SocketB->>B: 5. Receive offer
     
     Note over B: 6. Create Peer (initiator: false)
     Note over B: const peer = new Peer({ initiator: false })
@@ -485,25 +485,15 @@ sequenceDiagram
     Note over B: 9. Generate answer signal
     
     B->>SocketB: 10. Send answer
-    SocketB->>Server: webrtc-signal<br/>{ to: A, signal }
+    SocketB->>Server: webrtc-signal
     Server->>SocketA: Forward answer
     SocketA->>A: 11. Receive answer
-       │ 11. Receive answer                               │
-       │ socket.on('webrtc-signal')                       │
-       │ peer.signal(signal)                              │
-       │                                                  │
-       │ 12. ICE candidate exchange                       │
-       │◀━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶│
-       │  (via Socket.io - multiple exchanges)            │
-       │                                                  │
-       │ 13. P2P connection established! ✅               │
-       │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶│
-       │◀━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-       │         (Media flows directly P2P)               │
-       │                                                  │
-       │ 14. peer.on('stream', remoteStream)              │
-       │     videoRef.srcObject = remoteStream            │
-       │                                                  │
+    
+    Note over A,B: 12. ICE candidate exchange<br/>(via Socket.io - multiple exchanges)
+    
+    Note over A,B: 13. P2P connection established! ✅<br/>Media flows directly P2P
+    
+    Note over A,B: 14. peer.on('stream', remoteStream)<br/>videoRef.srcObject = remoteStream
 ```
 
 ---

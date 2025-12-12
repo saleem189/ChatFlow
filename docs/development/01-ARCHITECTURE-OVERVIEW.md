@@ -95,7 +95,7 @@ graph TB
     
     Browser -->|HTTP/HTTPS| API
     SocketClient -->|WebSocket| SocketServer
-    WebRTC -.->|P2P (UDP/TCP)| WebRTC
+    WebRTC -.->|P2P - UDP/TCP| WebRTC
     
     API --> DI
     DI --> Repos
