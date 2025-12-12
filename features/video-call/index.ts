@@ -26,8 +26,7 @@ export {
 // Components
 export { VideoCallProvider, useVideoCallContext } from './components/video-call-provider';
 export { IncomingCallDialog } from './components/incoming-call-dialog';
-// VideoCallModal is now a full-page route at /call/[callId]
-export { ResizableVideoCallWindow } from './components/resizable-video-call-window';
+// VideoCallModal and ResizableVideoCallWindow are now replaced by /call/[callId] route
 export { ParticipantVideo } from './components/participant-video';
 export { ParticipantGrid } from './components/participant-grid';
 export { CallControls } from './components/call-controls';

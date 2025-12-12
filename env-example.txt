@@ -1,17 +1,17 @@
 # ================================
 # Database Configuration (PostgreSQL)
 # ================================
-DATABASE_URL="postgresql://admin:password123@localhost:5432/chatapp?schema=public"
+DATABASE_URL="postgresql://your-db-user:your-db-password@localhost:5432/synapse?schema=public"
 
 # Alternative: Using the dedicated app user (after init script runs)
-# DATABASE_URL="mongodb://chatapp_user:chatapp_password@localhost:27017/chatapp?authSource=chatapp"
+# DATABASE_URL="mongodb://your-db-user:your-db-password@localhost:27017/synapse?authSource=synapse"
 
 # ================================
 # NextAuth.js Configuration
 # ================================
 # Generate a secure secret: openssl rand -base64 32
 # On Windows PowerShell: [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }) -as [byte[]])
-NEXTAUTH_SECRET="oWEK+b09bpJIB5qzrxWgbe3T551jASW0Ube0WzKrBaU="
+NEXTAUTH_SECRET="your-nextauth-secret-generate-a-random-string"
 
 # The URL where your app is running
 NEXTAUTH_URL="http://localhost:3000"
@@ -31,8 +31,8 @@ SOCKET_PORT=3001
 # Redis URL for Socket.IO adapter (enables multi-server support)
 # Format: redis://[password@]host:port
 # If not set, Socket.IO will use in-memory adapter (single server only)
-REDIS_URL="redis://:redis123@localhost:6379"
-REDIS_PASSWORD=redis123
+REDIS_URL="redis://:your-redis-password@localhost:6379"
+REDIS_PASSWORD="your-redis-password"
 REDIS_PORT=6379
 REDIS_HOST=localhost
 
@@ -60,17 +60,22 @@ REDIS_HOST=localhost
 #    npm run dev:all
 # ================================
 
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=BDagaqvePCafs0EmjDl0jG8lAMQaIB_gIdNdLIAUx9E7cfP8ZFBQ9l2tiydnnyxv9DpgYhq9btSCV0_lO2ie4So
-VAPID_PRIVATE_KEY=Qg2JgKdayfY6KEm-hCjkgYc3kNBDPh2Nn6hXcffneT8
-NEXT_PUBLIC_VAPID_SUBJECT=mailto:admin@example.com
+# ================================
+# Web Push Notifications (VAPID Keys)
+# ================================
+# Generate VAPID keys: npx web-push generate-vapid-keys
+# Or use: https://vapidkeys.com/
+NEXT_PUBLIC_VAPID_PUBLIC_KEY="your-vapid-public-key-here"
+VAPID_PRIVATE_KEY="your-vapid-private-key-here"
+NEXT_PUBLIC_VAPID_SUBJECT="mailto:your-email@example.com"
 
 # ================================
 # Sentry Error Tracking (Optional)
 # ================================
-# Get your DSN from https://chatflow.sentry.io/settings/projects/javascript-nextjs/keys/
-# Or use the DSN from the wizard-generated config files
-NEXT_PUBLIC_SENTRY_DSN="https://dc96bfd04a798a0ae84a0c38d7d77e01@o4510472153268224.ingest.de.sentry.io/4510472158773328"
-NEXT_PUBLIC_SENTRY_ENABLED="true"  # Set to "true" to enable Sentry (even in development)
+# Get your DSN from https://sentry.io/settings/projects/your-project/keys/
+# Sign up at https://sentry.io and create a Next.js project to get your DSN
+NEXT_PUBLIC_SENTRY_DSN="your-sentry-dsn-here"
+NEXT_PUBLIC_SENTRY_ENABLED="false"  # Set to "true" to enable Sentry
 SENTRY_SEND_PII="false"  # Set to "true" to send user PII (email, IP, etc.) - NOT recommended for privacy
 
 # ================================

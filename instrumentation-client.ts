@@ -8,8 +8,9 @@
 import * as Sentry from "@sentry/nextjs";
 
 Sentry.init({
-  // Use environment variable (fallback to hardcoded DSN if not set)
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN || "https://dc96bfd04a798a0ae84a0c38d7d77e01@o4510472153268224.ingest.de.sentry.io/4510472158773328",
+  // DSN from environment variable - required for Sentry to work
+  // Set NEXT_PUBLIC_SENTRY_DSN in your .env.local file
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
   
   environment: process.env.NODE_ENV || 'development',
 

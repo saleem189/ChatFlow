@@ -1,0 +1,99 @@
+# GitHub Pages Configuration for ChatFlow Documentation
+
+# Theme
+theme: jekyll-theme-cayman
+# Or use remote theme for more options
+# remote_theme: just-the-docs/just-the-docs
+
+# Site settings
+title: Synapse Documentation
+description: Complete documentation for Synapse real-time chat application
+baseurl: "" # Leave empty for user/org pages
+url: "" # Will be set by GitHub Pages
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-mentions
+  - jemoji
+
+# Collections
+collections:
+  docs:
+    output: true
+    permalink: /:collection/:path/
+
+# Defaults
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+  - scope:
+      path: ""
+      type: "docs"
+    values:
+      layout: "default"
+
+# Navigation
+navigation:
+  - title: Home
+    url: /
+  - title: Getting Started
+    url: /development/getting-started
+  - title: API Reference
+    url: /api/
+  - title: Architecture
+    url: /development/architecture
+  - title: Deployment
+    url: /deployment/
+  - title: Contributing
+    url: /CONTRIBUTING
+
+# Exclude from processing
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - .sass-cache
+  - .jekyll-cache
+  - gemfiles
+
+# Include
+include:
+  - _pages
+
+# Syntax highlighting
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+  syntax_highlighter_opts:
+    block:
+      line_numbers: true
+
+# SEO
+twitter:
+  username: synapse
+  card: summary
+
+social:
+  name: Synapse
+  links:
+    - https://github.com/your-username/synapse
+
+# Analytics (optional)
+# google_analytics: UA-XXXXXXXX-X
+
+# Author
+author:
+  name: Synapse Team
+  email: contact@synapse.com
+

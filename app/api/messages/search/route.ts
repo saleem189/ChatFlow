@@ -6,9 +6,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { handleError, UnauthorizedError, ValidationError } from "@/lib/errors";
+import { handleError, UnauthorizedError } from "@/lib/errors";
 import { getService } from "@/lib/di";
 import { MessageService } from "@/lib/services/message.service";
+import { validateQueryParams } from "@/lib/middleware/validate-request";
+import { z } from "zod";
 
 // Services are resolved asynchronously inside route handlers
 
@@ -27,13 +29,23 @@ export async function GET(request: NextRequest) {
     const messageService = await getService<MessageService>('messageService');
 
     const { searchParams } = new URL(request.url);
-    const roomId = searchParams.get("roomId");
-    const query = searchParams.get("query");
-    const limit = parseInt(searchParams.get("limit") || "50", 10);
-
-    if (!roomId || !query) {
-      return handleError(new ValidationError('Room ID and query are required'));
+    
+    // Validate query parameters
+    const searchQuerySchema = z.object({
+      roomId: z.string().min(1, "Room ID is required"),
+      query: z.string().min(1, "Query is required").max(200, "Query too long"),
+      limit: z
+        .string()
+        .optional()
+        .transform((val) => (val ? parseInt(val, 10) : 50))
+        .pipe(z.number().min(1).max(100)),
+    });
+    
+    const validation = validateQueryParams(searchParams, searchQuerySchema);
+    if (!validation.success) {
+      return validation.response;
     }
+    const { roomId, query, limit } = validation.data;
 
     const messages = await messageService.searchMessages(
       roomId,

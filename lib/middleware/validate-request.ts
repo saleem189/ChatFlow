@@ -115,3 +115,54 @@ export function createValidationMiddleware<T>(schema: ZodSchema<T>) {
   };
 }
 
+/**
+ * Validates query parameters against a Zod schema
+ * Returns validated data or error response
+ */
+export function validateQueryParams<T>(
+  searchParams: URLSearchParams,
+  schema: ZodSchema<T>
+): { success: true; data: T } | { success: false; response: NextResponse } {
+  try {
+    // Convert URLSearchParams to object
+    const params: Record<string, string> = {};
+    searchParams.forEach((value, key) => {
+      params[key] = value;
+    });
+
+    const result = schema.safeParse(params);
+
+    if (!result.success) {
+      return {
+        success: false,
+        response: NextResponse.json(
+          {
+            error: "Validation failed",
+            details: result.error.issues.map((err) => ({
+              path: err.path.join("."),
+              message: err.message,
+            })),
+          },
+          { status: 400 }
+        ),
+      };
+    }
+
+    return {
+      success: true,
+      data: result.data,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      response: NextResponse.json(
+        {
+          error: "Validation error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        },
+        { status: 400 }
+      ),
+    };
+  }
+}
+

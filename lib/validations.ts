@@ -176,3 +176,99 @@ export const updateUserSchema = z.object({
 
 export type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
+/**
+ * Delete user validation schema (admin)
+ */
+export const deleteUserSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+});
+
+export type DeleteUserFormData = z.infer<typeof deleteUserSchema>;
+
+/**
+ * Delete room validation schema (admin)
+ */
+export const deleteRoomSchema = z.object({
+  roomId: z.string().min(1, "Room ID is required"),
+});
+
+export type DeleteRoomFormData = z.infer<typeof deleteRoomSchema>;
+
+/**
+ * Remove room member validation schema
+ */
+export const removeMemberSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+});
+
+export type RemoveMemberFormData = z.infer<typeof removeMemberSchema>;
+
+// ================================
+// GET Endpoint Query Validation
+// ================================
+
+/**
+ * Admin users list query validation schema
+ */
+export const getUsersQuerySchema = z.object({
+  skip: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 0))
+    .pipe(z.number().min(0, "Skip must be non-negative")),
+  take: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 50))
+    .pipe(z.number().min(1, "Take must be at least 1").max(100, "Take cannot exceed 100")),
+  search: z.string().max(100, "Search query too long").optional(),
+});
+
+export type GetUsersQueryData = z.infer<typeof getUsersQuerySchema>;
+
+/**
+ * Message search query validation schema
+ */
+export const searchMessagesQuerySchema = z.object({
+  q: z
+    .string()
+    .min(1, "Search query is required")
+    .max(200, "Search query too long"),
+  roomId: z.string().optional(),
+  skip: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 0))
+    .pipe(z.number().min(0, "Skip must be non-negative")),
+  take: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val, 10) : 20))
+    .pipe(z.number().min(1, "Take must be at least 1").max(50, "Take cannot exceed 50")),
+});
+
+export type SearchMessagesQueryData = z.infer<typeof searchMessagesQuerySchema>;
+
+/**
+ * Admin stats query validation schema
+ */
+export const getStatsQuerySchema = z.object({
+  startDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || !isNaN(Date.parse(val)),
+      "Invalid start date format"
+    ),
+  endDate: z
+    .string()
+    .optional()
+    .refine(
+      (val) => !val || !isNaN(Date.parse(val)),
+      "Invalid end date format"
+    ),
+  period: z.enum(["day", "week", "month", "year"]).optional().default("week"),
+});
+
+export type GetStatsQueryData = z.infer<typeof getStatsQuerySchema>;
+
