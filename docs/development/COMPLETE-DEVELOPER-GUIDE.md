@@ -30,36 +30,23 @@ Synapse uses a **dual notification strategy**:
 
 ### Architecture
 
-```
-Message Created
-  ↓
-MessageNotificationService.sendPushNotifications()
-  ↓
-┌─────────────────────────────────────────┐
-│  Check: Is user online?                  │
-│  (Check Socket.io connectedUsers Map)   │
-└─────────────┬───────────────────────────┘
-              │
-      ┌───────┴───────┐
-      │               │
-   ✅ ONLINE       ❌ OFFLINE
-      │               │
-      ▼               ▼
- Socket.io        Queue Push
- Broadcast        Notification
- (Instant)        (Background)
-      │               │
-      ▼               ▼
- User sees        BullMQ Worker
- message          processes job
- immediately           │
-                       ▼
-                  Web Push API
-                  sends notification
-                       │
-                       ▼
-                  Browser shows
-                  notification
+```mermaid
+flowchart TD
+    Start([Message Created]) --> Service[MessageNotificationService<br/>sendPushNotifications]
+    Service --> Check{Is user online?<br/>Socket.io connectedUsers Map}
+    Check -->|✅ ONLINE| Socket[Socket.io Broadcast<br/>(Instant)]
+    Check -->|❌ OFFLINE| Queue[Queue Push Notification<br/>(Background)]
+    Socket --> Result1[User sees message<br/>immediately]
+    Queue --> Worker[BullMQ Worker<br/>processes job]
+    Worker --> Push[Web Push API<br/>sends notification]
+    Push --> Result2[Browser shows<br/>notification]
+    
+    style Start fill:#e8f5e9
+    style Check fill:#fff4e1
+    style Socket fill:#e1f5ff
+    style Queue fill:#f0f4ff
+    style Result1 fill:#c8e6c9
+    style Result2 fill:#c8e6c9
 ```
 
 ---

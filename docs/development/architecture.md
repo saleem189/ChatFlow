@@ -27,33 +27,40 @@ Synapse is a modern real-time chat application built with Next.js 16 and React 1
 
 ### High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Client (Browser)                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │   React UI   │  │  WebSocket   │  │    WebRTC    │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘ │
-└───────────┬──────────────┬────────────────┬────────────┘
-            │              │                │
-            │ HTTP/REST    │ Socket.io      │ STUN/TURN
-            │              │                │
-┌───────────▼──────────────▼────────────────▼────────────┐
-│                   Application Layer                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │  Next.js App │  │  Socket.io   │  │  Background  │ │
-│  │    Router    │  │    Server    │  │    Worker    │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘ │
-└───────────┬────────────────────────────────────────────┘
-            │
-            │ Prisma ORM
-            │
-┌───────────▼────────────────────────────────────────────┐
-│                    Data Layer                           │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │  PostgreSQL  │  │    Redis     │  │    S3/CDN    │ │
-│  │   Database   │  │    Cache     │  │  File Store  │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘ │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Client["Client (Browser)"]
+        UI[React UI]
+        WS[WebSocket]
+        RTC[WebRTC]
+    end
+    
+    subgraph App["Application Layer"]
+        NextJS[Next.js App<br/>Router]
+        Socket[Socket.io<br/>Server]
+        Worker[Background<br/>Worker]
+    end
+    
+    subgraph Data["Data Layer"]
+        Postgres[PostgreSQL<br/>Database]
+        Redis[Redis<br/>Cache]
+        S3[S3/CDN<br/>File Store]
+    end
+    
+    UI -->|HTTP/REST| NextJS
+    WS -->|Socket.io| Socket
+    RTC -.->|STUN/TURN| RTC
+    
+    NextJS -->|Prisma ORM| Postgres
+    NextJS --> Redis
+    NextJS --> S3
+    Socket --> Redis
+    Worker --> Postgres
+    Worker --> Redis
+    
+    style Client fill:#e1f5ff
+    style App fill:#fff4e1
+    style Data fill:#e8f5e9
 ```
 
 ---
@@ -287,24 +294,27 @@ Initiate Call
 
 We implement multiple layers of security:
 
-```
-┌──────────────────────────────────────┐
-│   1. Network Security (HTTPS/WSS)    │
-├──────────────────────────────────────┤
-│   2. Rate Limiting (5-100 req/min)   │
-├──────────────────────────────────────┤
-│   3. Authentication (NextAuth + JWT) │
-├──────────────────────────────────────┤
-│   4. Authorization (RBAC)            │
-├──────────────────────────────────────┤
-│   5. Input Validation (Zod)          │
-├──────────────────────────────────────┤
-│   6. SQL Injection Prevention (ORM)  │
-├──────────────────────────────────────┤
-│   7. XSS Prevention (React, CSP)     │
-├──────────────────────────────────────┤
-│   8. CSRF Prevention (SameSite)      │
-└──────────────────────────────────────┘
+```mermaid
+graph TD
+    Layer1["1. Network Security<br/>(HTTPS/WSS)"]
+    Layer2["2. Rate Limiting<br/>(5-100 req/min)"]
+    Layer3["3. Authentication<br/>(NextAuth + JWT)"]
+    Layer4["4. Authorization<br/>(RBAC)"]
+    Layer5["5. Input Validation<br/>(Zod)"]
+    Layer6["6. SQL Injection Prevention<br/>(Prisma ORM)"]
+    Layer7["7. XSS Prevention<br/>(React, CSP)"]
+    Layer8["8. CSRF Prevention<br/>(SameSite)"]
+    
+    Layer1 --> Layer2 --> Layer3 --> Layer4 --> Layer5 --> Layer6 --> Layer7 --> Layer8
+    
+    style Layer1 fill:#ffebee
+    style Layer2 fill:#fce4ec
+    style Layer3 fill:#f3e5f5
+    style Layer4 fill:#e8eaf6
+    style Layer5 fill:#e3f2fd
+    style Layer6 fill:#e1f5fe
+    style Layer7 fill:#e0f7fa
+    style Layer8 fill:#e0f2f1
 ```
 
 ### Security Headers
@@ -343,18 +353,21 @@ const messageSchema = z.object({
 
 ### 2. Caching Strategy
 
-```
-┌──────────────┐
-│   Browser    │  React Query: 5min stale time
-├──────────────┤
-│     CDN      │  Static assets: 1 year
-├──────────────┤
-│  Next.js     │  API routes: custom per endpoint
-├──────────────┤
-│    Redis     │  Session data: 1 hour
-├──────────────┤
-│  PostgreSQL  │  Persistent data
-└──────────────┘
+```mermaid
+graph TD
+    Browser["Browser<br/>React Query: 5min stale time"]
+    CDN["CDN<br/>Static assets: 1 year"]
+    NextJS["Next.js<br/>API routes: custom per endpoint"]
+    Redis["Redis<br/>Session data: 1 hour"]
+    Postgres["PostgreSQL<br/>Persistent data"]
+    
+    Browser --> CDN --> NextJS --> Redis --> Postgres
+    
+    style Browser fill:#e1f5ff
+    style CDN fill:#f0f4ff
+    style NextJS fill:#fff4e1
+    style Redis fill:#ffe1e1
+    style Postgres fill:#e8f5e9
 ```
 
 ### 3. Database Optimization

@@ -451,47 +451,43 @@ socket.on('disconnect', () => handleDisconnect(socket));
 
 ### WebRTC Connection Flow
 
-```
-┌─────────────┐                                    ┌─────────────┐
-│   User A    │                                    │   User B    │
-│  (Caller)   │                                    │  (Callee)   │
-└──────┬──────┘                                    └──────┬──────┘
-       │                                                  │
-       │ 1. Create Peer (initiator: true)                │
-       ├──────────────────────────────────────────────┐  │
-       │ const peer = new Peer({ initiator: true })   │  │
-       │                                               │  │
-       │ 2. Get local media stream                    │  │
-       ├──────────────────────────────────────────────┤  │
-       │ getUserMedia({ video: true, audio: true })   │  │
-       │ peer.addStream(localStream)                  │  │
-       │                                               │  │
-       │ 3. Generate offer signal                      │  │
-       ├──────────────────────────────────────────────┤  │
-       │ peer.on('signal', signal => { ... })         │  │
-       │                                               │  │
-       │ 4. Send offer via Socket.io                   │  │
-       │ socket.emit('webrtc-signal', { to: B, signal })│  │
-       │━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━▶│
-       │                                                  │
-       │                                5. Receive offer │
-       │                           socket.on('webrtc-signal')
-       │                                                  │
-       │                    6. Create Peer (initiator: false)
-       │                    const peer = new Peer({ initiator: false })
-       │                                                  │
-       │                           7. Get local media stream
-       │                    getUserMedia({ video: true, audio: true })
-       │                                                  │
-       │                                8. Process offer signal
-       │                                peer.signal(signal)
-       │                                                  │
-       │                                9. Generate answer signal
-       │                                                  │
-       │                          10. Send answer via Socket.io
-       │◀━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-       │ socket.emit('webrtc-signal', { to: A, signal }) │
-       │                                                  │
+```mermaid
+sequenceDiagram
+    participant A as User A (Caller)
+    participant SocketA as Socket.io<br/>(User A)
+    participant Server as Socket.io<br/>Server
+    participant SocketB as Socket.io<br/>(User B)
+    participant B as User B (Callee)
+    
+    Note over A: 1. Create Peer (initiator: true)
+    Note over A: const peer = new Peer({ initiator: true })
+    
+    Note over A: 2. Get local media stream
+    Note over A: getUserMedia({ video, audio })<br/>peer.addStream(localStream)
+    
+    Note over A: 3. Generate offer signal
+    Note over A: peer.on('signal', signal => {...})
+    
+    A->>SocketA: 4. Send offer
+    SocketA->>Server: webrtc-signal<br/>{ to: B, signal }
+    Server->>SocketB: Forward offer
+    SocketB->>B: 5. Receive offer<br/>socket.on('webrtc-signal')
+    
+    Note over B: 6. Create Peer (initiator: false)
+    Note over B: const peer = new Peer({ initiator: false })
+    
+    Note over B: 7. Get local media stream
+    Note over B: getUserMedia({ video, audio })
+    
+    Note over B: 8. Process offer signal
+    Note over B: peer.signal(signal)
+    
+    Note over B: 9. Generate answer signal
+    
+    B->>SocketB: 10. Send answer
+    SocketB->>Server: webrtc-signal<br/>{ to: A, signal }
+    Server->>SocketA: Forward answer
+    SocketA->>A: 11. Receive answer
        │ 11. Receive answer                               │
        │ socket.on('webrtc-signal')                       │
        │ peer.signal(signal)                              │

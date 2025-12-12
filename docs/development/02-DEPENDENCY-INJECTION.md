@@ -144,63 +144,58 @@ class DIContainer {
 
 ### Service Dependency Graph
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    Core Infrastructure                        │
-│  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐            │
-│  │ Logger │  │ Redis  │  │ Prisma │  │ Config │            │
-│  └───┬────┘  └───┬────┘  └───┬────┘  └───┬────┘            │
-│      │           │           │           │                   │
-│      └───────────┴───────────┴───────────┘                   │
-│                  │                                            │
-└──────────────────┼────────────────────────────────────────────┘
-                   │
-┌──────────────────┼────────────────────────────────────────────┐
-│                  ▼          Support Services                   │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌─────────────┐ │
-│  │  CacheService    │  │   EventBus       │  │ QueueService│ │
-│  │  (Redis+Logger)  │  │  (Redis+Logger)  │  │   (Logger)  │ │
-│  └───────┬──────────┘  └──────────────────┘  └──────┬──────┘ │
-│          │                                            │         │
-└──────────┼────────────────────────────────────────────┼─────────┘
-           │                                            │
-┌──────────┼────────────────────────────────────────────┼─────────┐
-│          ▼            Repository Layer                 │         │
-│  ┌──────────────────────────────────────┐             │         │
-│  │    UserRepository                     │             │         │
-│  │    (Prisma + CacheService)           │             │         │
-│  └──────────────────┬───────────────────┘             │         │
-│  ┌──────────────────┴───────────────────┐             │         │
-│  │    RoomRepository                     │             │         │
-│  │    (Prisma + CacheService)           │             │         │
-│  └──────────────────┬───────────────────┘             │         │
-│  ┌──────────────────┴───────────────────┐             │         │
-│  │    MessageRepository                  │             │         │
-│  │    (Prisma + CacheService)           │             │         │
-│  └──────────────────┬───────────────────┘             │         │
-│                     │                                  │         │
-└─────────────────────┼──────────────────────────────────┼─────────┘
-                      │                                  │
-┌─────────────────────┼──────────────────────────────────┼─────────┐
-│                     ▼         Service Layer             ▼         │
-│  ┌──────────────────────────────────────────────────────────────┐│
-│  │  MessageService                                               ││
-│  │  • MessageRepository                                          ││
-│  │  • RoomRepository                                             ││
-│  │  • Logger                                                     ││
-│  │  • CacheService                                               ││
-│  │  • MessageNotificationService                                 ││
-│  │  • MessageReactionService                                     ││
-│  │  • MessageReadService                                         ││
-│  └──────────────────────────────────────────────────────────────┘│
-│  ┌──────────────────────────────────────────────────────────────┐│
-│  │  MessageNotificationService                                   ││
-│  │  • RoomRepository                                             ││
-│  │  • QueueService                                               ││
-│  │  • Logger                                                     ││
-│  │  • PushService                                                ││
-│  └──────────────────────────────────────────────────────────────┘│
-└───────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Core["Core Infrastructure"]
+        Logger[Logger]
+        Redis[Redis]
+        Prisma[Prisma]
+        Config[Config]
+    end
+    
+    subgraph Support["Support Services"]
+        Cache["CacheService<br/>(Redis + Logger)"]
+        EventBus["EventBus<br/>(Redis + Logger)"]
+        Queue["QueueService<br/>(Logger)"]
+    end
+    
+    subgraph Repos["Repository Layer"]
+        UserRepo["UserRepository<br/>(Prisma + Cache)"]
+        RoomRepo["RoomRepository<br/>(Prisma + Cache)"]
+        MessageRepo["MessageRepository<br/>(Prisma + Cache)"]
+    end
+    
+    subgraph Services["Service Layer"]
+        MsgService["MessageService<br/>• MessageRepository<br/>• RoomRepository<br/>• Logger<br/>• CacheService<br/>• MessageNotificationService<br/>• MessageReactionService<br/>• MessageReadService"]
+        MsgNotifService["MessageNotificationService<br/>• RoomRepository<br/>• QueueService<br/>• Logger<br/>• PushService"]
+    end
+    
+    Logger --> Cache
+    Redis --> Cache
+    Logger --> EventBus
+    Redis --> EventBus
+    Logger --> Queue
+    
+    Prisma --> UserRepo
+    Cache --> UserRepo
+    Prisma --> RoomRepo
+    Cache --> RoomRepo
+    Prisma --> MessageRepo
+    Cache --> MessageRepo
+    
+    MessageRepo --> MsgService
+    RoomRepo --> MsgService
+    Logger --> MsgService
+    Cache --> MsgService
+    
+    RoomRepo --> MsgNotifService
+    Queue --> MsgNotifService
+    Logger --> MsgNotifService
+    
+    style Core fill:#e1f5ff
+    style Support fill:#fff4e1
+    style Repos fill:#f0f4ff
+    style Services fill:#e8f5e9
 ```
 
 ---

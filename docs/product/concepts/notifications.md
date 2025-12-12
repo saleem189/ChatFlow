@@ -28,26 +28,20 @@ For users who are **offline** or have tab closed.
 
 ## How It Works
 
-```
-Message Sent
-  ↓
-┌─────────────────────────┐
-│  Is user online?        │
-│  (Socket.io connected)  │
-└──────────┬──────────────┘
-           │
-    ┌──────┴──────┐
-    │             │
-  YES            NO
-    │             │
-    ▼             ▼
-WebSocket    Queue Push
-Broadcast    Notification
-(Instant)    (Background)
-    │             │
-    ▼             ▼
-User sees     Browser shows
-in real-time  notification
+```mermaid
+flowchart TD
+    Start([Message Sent]) --> Check{Is user online?<br/>(Socket.io connected)}
+    Check -->|YES| WebSocket[WebSocket Broadcast<br/>(Instant)]
+    Check -->|NO| Queue[Queue Push Notification<br/>(Background)]
+    WebSocket --> Result1[User sees<br/>in real-time]
+    Queue --> Result2[Browser shows<br/>notification]
+    
+    style Start fill:#e8f5e9
+    style Check fill:#fff4e1
+    style WebSocket fill:#e1f5ff
+    style Queue fill:#f0f4ff
+    style Result1 fill:#c8e6c9
+    style Result2 fill:#c8e6c9
 ```
 
 ---

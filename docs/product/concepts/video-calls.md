@@ -8,27 +8,24 @@ Understand how peer-to-peer video calling works in Synapse.
 
 Synapse uses **WebRTC** for direct peer-to-peer video/audio streaming:
 
-```
-┌─────────────┐                           ┌─────────────┐
-│   User A    │                           │   User B    │
-│  (Caller)   │                           │  (Callee)   │
-└──────┬──────┘                           └──────┬──────┘
-       │                                         │
-       │  1. Initiate call (Socket.io)         │
-       │────────────────────────────────────────>│
-       │                                         │
-       │  2. Accept call (Socket.io)            │
-       │<────────────────────────────────────────│
-       │                                         │
-       │  3. Exchange WebRTC signals (Socket.io)│
-       │<───────────────────────────────────────>│
-       │                                         │
-       │  4. Establish P2P connection           │
-       │═════════════════════════════════════════│
-       │                                         │
-       │  5. Media flows directly (not via server)
-       │<═══════════════════════════════════════>│
-       │         Video + Audio                   │
+```mermaid
+sequenceDiagram
+    participant A as User A (Caller)
+    participant Server as Socket.io Server
+    participant B as User B (Callee)
+    
+    A->>+Server: 1. Initiate call
+    Server->>B: Call notification
+    B->>Server: 2. Accept call
+    Server->>-A: Call accepted
+    
+    A<<->>B: 3. Exchange WebRTC signals<br/>(via Socket.io)
+    
+    Note over A,B: 4. Establish P2P connection
+    
+    A<<=>>B: 5. Media flows directly (P2P)<br/>Video + Audio
+    
+    Note over A,B: Media does NOT go through server!
 ```
 
 **Key Point:** After signaling, media flows **directly between users** (peer-to-peer), not through the server!

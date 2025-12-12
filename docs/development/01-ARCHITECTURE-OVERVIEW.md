@@ -70,59 +70,46 @@ Synapse is a real-time chat application with video calling capabilities, built o
 
 ## High-Level Architecture
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                         CLIENT LAYER                            │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │   Browser    │  │  Socket.io   │  │   WebRTC     │         │
-│  │  (React 19)  │  │   Client     │  │ (simple-peer)│         │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘         │
-│         │                  │                  │                  │
-│         │ HTTP/HTTPS       │ WebSocket        │ P2P (UDP/TCP)   │
-│         │                  │                  │                  │
-└─────────┼──────────────────┼──────────────────┼─────────────────┘
-          │                  │                  │
-┌─────────┼──────────────────┼──────────────────┼─────────────────┐
-│         ▼                  ▼                  │  SERVER LAYER    │
-│  ┌───────────────────────────────┐           │                  │
-│  │    Next.js Application        │           │                  │
-│  │  ┌─────────────────────────┐  │           │                  │
-│  │  │   API Routes            │  │           │                  │
-│  │  │  (REST + Server Actions)│  │           │                  │
-│  │  └───────┬─────────────────┘  │           │                  │
-│  │          │                     │           │                  │
-│  │  ┌───────▼─────────────────┐  │     ┌─────▼──────────────┐  │
-│  │  │  DI Container (15+ svc) │  │     │  Socket.io Server  │  │
-│  │  │  • MessageService       │  │     │  (Standalone)      │  │
-│  │  │  • UserService          │  │     │  • Signaling       │  │
-│  │  │  • RoomService          │  │     │  • Room events     │  │
-│  │  │  • PushService          │  │     │  • Call events     │  │
-│  │  │  • CacheService         │  │     │  • Memory mgmt     │  │
-│  │  │  • QueueService         │  │     └────────────────────┘  │
-│  │  └───────┬─────────────────┘  │                              │
-│  │          │                     │                              │
-│  │  ┌───────▼─────────────────┐  │                              │
-│  │  │  Repository Layer       │  │                              │
-│  │  │  • UserRepository       │  │                              │
-│  │  │  • RoomRepository       │  │                              │
-│  │  │  • MessageRepository    │  │                              │
-│  │  └───────┬─────────────────┘  │                              │
-│  └──────────┼─────────────────────┘                              │
-│             │                                                     │
-└─────────────┼─────────────────────────────────────────────────────┘
-              │
-┌─────────────┼─────────────────────────────────────────────────────┐
-│             ▼              DATA LAYER                              │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌─────────────────┐ │
-│  │   PostgreSQL     │  │      Redis       │  │   BullMQ Worker │ │
-│  │                  │  │                  │  │                 │ │
-│  │  • Users         │  │  • Cache         │  │  • Push notif   │ │
-│  │  • Rooms         │  │  • Pub/Sub       │  │  • Image proc   │ │
-│  │  • Messages      │  │  • Sessions      │  │  • Video proc   │ │
-│  │  • CallSessions  │  │  • Queue         │  │  • Email jobs   │ │
-│  └──────────────────┘  └──────────────────┘  └─────────────────┘ │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Client["CLIENT LAYER"]
+        Browser["Browser<br/>(React 19)"]
+        SocketClient["Socket.io Client"]
+        WebRTC["WebRTC<br/>(simple-peer)"]
+    end
+    
+    subgraph Server["SERVER LAYER"]
+        subgraph NextJS["Next.js Application"]
+            API["API Routes<br/>(REST + Server Actions)"]
+            DI["DI Container (15+ services)<br/>• MessageService<br/>• UserService<br/>• RoomService<br/>• PushService<br/>• CacheService<br/>• QueueService"]
+            Repos["Repository Layer<br/>• UserRepository<br/>• RoomRepository<br/>• MessageRepository"]
+        end
+        SocketServer["Socket.io Server<br/>(Standalone)<br/>• Signaling<br/>• Room events<br/>• Call events<br/>• Memory mgmt"]
+    end
+    
+    subgraph Data["DATA LAYER"]
+        Postgres["PostgreSQL<br/>• Users<br/>• Rooms<br/>• Messages<br/>• CallSessions"]
+        Redis["Redis<br/>• Cache<br/>• Pub/Sub<br/>• Sessions<br/>• Queue"]
+        Worker["BullMQ Worker<br/>• Push notif<br/>• Image proc<br/>• Video proc<br/>• Email jobs"]
+    end
+    
+    Browser -->|HTTP/HTTPS| API
+    SocketClient -->|WebSocket| SocketServer
+    WebRTC -.->|P2P (UDP/TCP)| WebRTC
+    
+    API --> DI
+    DI --> Repos
+    Repos --> Postgres
+    Repos --> Redis
+    
+    SocketServer --> Redis
+    Worker --> Redis
+    Worker --> Postgres
+    
+    style Client fill:#e1f5ff
+    style Server fill:#fff4e1
+    style Data fill:#e8f5e9
+    style NextJS fill:#f0f4ff
 ```
 
 ---

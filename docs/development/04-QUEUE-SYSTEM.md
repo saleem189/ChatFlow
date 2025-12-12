@@ -73,60 +73,31 @@ export async function POST(req: NextRequest) {
 
 ### Components
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Next.js Application                       │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │  API Routes / Services                                    │   │
-│  │                                                            │   │
-│  │  queueService.addPushNotification({ ... })                │   │
-│  │  queueService.addImageProcessing({ ... })                 │   │
-│  │  queueService.addVideoProcessing({ ... })                 │   │
-│  │                                                            │   │
-│  └───────────────────────┬──────────────────────────────────┘   │
-│                          │                                       │
-│                          │ (Add job - fast, non-blocking)        │
-│                          ▼                                       │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │            QueueService (lib/queue/queue-service.ts)       │  │
-│  │                                                             │  │
-│  │  • Manages queue operations                                │  │
-│  │  • Provides type-safe job addition                         │  │
-│  │  • Handles retries & failures                              │  │
-│  └───────────────────────┬───────────────────────────────────┘  │
-│                          │                                       │
-└──────────────────────────┼───────────────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────────────┐
-│                        Redis (Job Storage)                      │
-│  ┌──────────────────┐         ┌──────────────────┐            │
-│  │  Push Notification│         │  File Processing │            │
-│  │      Queue        │         │      Queue       │            │
-│  │                   │         │                  │            │
-│  │  Job 1 (pending)  │         │  Job 1 (active)  │            │
-│  │  Job 2 (pending)  │         │  Job 2 (pending) │            │
-│  │  Job 3 (active)   │         │  Job 3 (failed)  │            │
-│  └──────────────────┘         └──────────────────┘            │
-└────────────────────────────────────────────────────────────────┘
-                           │
-                           │ (Worker polls for jobs)
-                           ▼
-┌────────────────────────────────────────────────────────────────┐
-│              BullMQ Worker (backend/worker.ts)                  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  Push Notification Worker                                 │  │
-│  │  • Polls push-notifications queue                         │  │
-│  │  • Processes 5 jobs concurrently                          │  │
-│  │  • Rate limit: 100 jobs/second                            │  │
-│  │  • Auto-retry: 3 attempts with exponential backoff        │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  File Processing Worker                                   │  │
-│  │  • Polls file-processing queue                            │  │
-│  │  • Processes 3 jobs concurrently (CPU intensive)          │  │
-│  │  • Rate limit: 50 jobs/second                             │  │
+```mermaid
+graph TB
+    subgraph NextJS["Next.js Application"]
+        API["API Routes / Services<br/><br/>queueService.addPushNotification()<br/>queueService.addImageProcessing()<br/>queueService.addVideoProcessing()"]
+        QService["QueueService<br/>(lib/queue/queue-service.ts)<br/><br/>• Manages queue operations<br/>• Type-safe job addition<br/>• Handles retries & failures"]
+        API -->|Add job<br/>(fast, non-blocking)| QService
+    end
+    
+    subgraph Redis["Redis (Job Storage)"]
+        PushQueue["Push Notification Queue<br/><br/>Job 1 (pending)<br/>Job 2 (pending)<br/>Job 3 (active)"]
+        FileQueue["File Processing Queue<br/><br/>Job 1 (active)<br/>Job 2 (pending)<br/>Job 3 (failed)"]
+    end
+    
+    subgraph Worker["BullMQ Worker (backend/worker.ts)"]
+        PushWorker["Push Notification Worker<br/><br/>• Polls push-notifications queue<br/>• 5 jobs concurrently<br/>• Rate: 100 jobs/second<br/>• Auto-retry: 3 attempts"]
+        FileWorker["File Processing Worker<br/><br/>• Polls file-processing queue<br/>• 3 jobs concurrently<br/>• Rate: 50 jobs/second"]
+    end
+    
+    QService --> Redis
+    PushQueue -->|Worker polls<br/>for jobs| PushWorker
+    FileQueue -->|Worker polls<br/>for jobs| FileWorker
+    
+    style NextJS fill:#e1f5ff
+    style Redis fill:#fff4e1
+    style Worker fill:#e8f5e9
 │  │  • Auto-retry: 2 attempts                                 │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
